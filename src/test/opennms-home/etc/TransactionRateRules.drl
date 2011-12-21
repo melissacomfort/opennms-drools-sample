@@ -88,6 +88,9 @@ function void sendCriticalXactRateHighEvent( DroolsCorrelationEngine engine, Lon
         EventBuilder bldr = new EventBuilder("uei.opennms.org/vendor/Juniper/MFC/correlation/aggregateTransactionRateHigh", "Drools")
                 .setNodeid(nodeId.intValue())
                 .setInterface(InetAddressUtils.addr(ipAddr))
+		.addParam("correlationEngineName", "Drools").
+		.addParam("correlationRuleSetName", engine.getName()).
+		.addParam("correlationComments", "Observed at least " + count + " occurrences within " + timeWindowMinutes + " minutes")
 		.addParam("occurrences", count.toString())
 		.addParam("timeWindow", timeWindowMinutes.toString());
         engine.sendEvent(bldr.getEvent());
