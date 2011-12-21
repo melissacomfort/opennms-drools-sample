@@ -68,8 +68,8 @@ function void sendVerifiedNodeDownEvent( DroolsCorrelationEngine engine, Long no
 		Integer holdDownTimeSec = holdDownTime / 1000;
         EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/nodeDownPastHoldDownTime", "Drools")
                 .setNodeid(nodeId.intValue())
-		.addParam("correlationEngineName", "Drools").
-		.addParam("correlationRuleSetName", engine.getName()).
+		.addParam("correlationEngineName", "Drools")
+		.addParam("correlationRuleSetName", engine.getName())
 		.addParam("correlationComments", "Observed an interface-down situation enduring at least " + holdDownTimeSec + " seconds")
 		.addParam("holdDownTime", holdDownTimeSec.toString());
         engine.sendEvent(bldr.getEvent());
