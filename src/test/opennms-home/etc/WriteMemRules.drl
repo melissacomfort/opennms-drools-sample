@@ -31,7 +31,7 @@ end
 rule "initial local7/Notice wr-mem event received for node"
 	salience 100
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/syslogd/local7/Notice", $nodeid : nodeid, $ipaddr : interface, logmsg matches "wr(...)? mem(...)?" )
+		$e : Event( $uei : uei == "uei.opennms.org/syslogd/local7/Notice", $nodeid : nodeid, $ipaddr : interface, logmsg.content matches "wr(...)? mem(...)?" )
 		not( WriteMemSituation( node == $nodeid ) )
 	then
 		retract( $e );
@@ -46,7 +46,7 @@ end
 rule "subsequent but NON-triggering local7/Notice wr-mem event received for node"
 	salience 100
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/syslogd/local7/Notice", $nodeid : nodeid, $ipaddr : interface, logmsg matches "wr(...)? mem(...)?" )
+		$e : Event( $uei : uei == "uei.opennms.org/syslogd/local7/Notice", $nodeid : nodeid, $ipaddr : interface, logmsg.content matches "wr(...)? mem(...)?" )
 		$situation : WriteMemSituation( occurrences < ( WRITE_MEM_TRIGGER_COUNT ), node == $nodeid )
 	then
 		println( "Found local7/Notice wr-mem event for active situation " + $situation + ". Retracting event. Incrementing occurrences on situation." );
@@ -58,7 +58,7 @@ end
 rule "subsequent TRIGGERING local7/Notice wr-mem event received for node"
 	salience 1000
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/syslogd/local7/Notice", $nodeid : nodeid, $ipaddr : interface, logmsg matches "wr(...)? mem(...)?" )
+		$e : Event( $uei : uei == "uei.opennms.org/syslogd/local7/Notice", $nodeid : nodeid, $ipaddr : interface, logmsg.content matches "wr(...)? mem(...)?" )
 		$situation : WriteMemSituation( $occ : occurrences >= ( WRITE_MEM_TRIGGER_COUNT ), node == $nodeid )
 	then
 		println( "Final local7/Notice wr-mem event on situation " + $situation + " triggered warning event, retracting event and situation; sending escalation event" );
@@ -69,7 +69,7 @@ end
 
 rule "retract expired local7/Notice wr-mem situations"
 	when
-		$situation : WriteMemSituation( $nodeid : node, $timerId : timerId, $occ : occurrences < ( WRITE_MEM_TRIGGER_COUNT ), logmsg matches "wr(...)? mem(...)?" )
+		$situation : WriteMemSituation( $nodeid : node, $timerId : timerId, $occ : occurrences < ( WRITE_MEM_TRIGGER_COUNT ), logmsg.content matches "wr(...)? mem(...)?" )
 		$expiration : TimerExpired( id == $timerId )
 	then
 		println( "Found expired local7/Notice wr-mem situation " + $situation + "; retracting situation and expiration." );
