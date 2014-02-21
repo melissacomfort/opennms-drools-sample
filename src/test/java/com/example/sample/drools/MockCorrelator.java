@@ -1,8 +1,8 @@
 /*******************************************************************************
  * This file is part of OpenNMS(R).
  *
- * Copyright (C) 2007-2011 The OpenNMS Group, Inc.
- * OpenNMS(R) is Copyright (C) 1999-2011 The OpenNMS Group, Inc.
+ * Copyright (C) 2006-2013 The OpenNMS Group, Inc.
+ * OpenNMS(R) is Copyright (C) 1999-2013 The OpenNMS Group, Inc.
  *
  * OpenNMS(R) is a registered trademark of The OpenNMS Group, Inc.
  *
@@ -34,14 +34,26 @@ import java.util.List;
 import org.opennms.netmgt.correlation.CorrelationEngine;
 import org.opennms.netmgt.correlation.CorrelationEngineRegistrar;
 
+/**
+ * The Class MockCorrelator.
+ * 
+ * @author <a href="mailto:jeffg@opennms.org">Jeff Gehlbach</a>
+ */
 public class MockCorrelator implements CorrelationEngineRegistrar {
-    
+
+    /** The engines. */
     List<CorrelationEngine> m_engines = new LinkedList<CorrelationEngine>();
 
+    /* (non-Javadoc)
+     * @see org.opennms.netmgt.correlation.CorrelationEngineRegistrar#addCorrelationEngine(org.opennms.netmgt.correlation.CorrelationEngine)
+     */
     public void addCorrelationEngine(CorrelationEngine engine) {
         m_engines.add(engine);
     }
-    
+
+    /* (non-Javadoc)
+     * @see org.opennms.netmgt.correlation.CorrelationEngineRegistrar#findEngineByName(java.lang.String)
+     */
     public CorrelationEngine findEngineByName(String name) {
         for (CorrelationEngine engine : m_engines) {
             if (name.equals(engine.getName())) {
@@ -51,10 +63,16 @@ public class MockCorrelator implements CorrelationEngineRegistrar {
         return null;
     }
 
+    /* (non-Javadoc)
+     * @see org.opennms.netmgt.correlation.CorrelationEngineRegistrar#getEngines()
+     */
     public List<CorrelationEngine> getEngines() {
         return m_engines;
     }
 
+    /* (non-Javadoc)
+     * @see org.opennms.netmgt.correlation.CorrelationEngineRegistrar#addCorrelationEngines(org.opennms.netmgt.correlation.CorrelationEngine[])
+     */
     public void addCorrelationEngines(CorrelationEngine... engines) {
         for (CorrelationEngine engine : engines) {
             addCorrelationEngine(engine);
