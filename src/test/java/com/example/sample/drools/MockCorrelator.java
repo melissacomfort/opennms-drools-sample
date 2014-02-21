@@ -55,4 +55,10 @@ public class MockCorrelator implements CorrelationEngineRegistrar {
         return m_engines;
     }
 
+    public void addCorrelationEngines(CorrelationEngine... engines) {
+        for (CorrelationEngine engine : engines) {
+            addCorrelationEngine(engine);
+        }
+    }
+
 }
