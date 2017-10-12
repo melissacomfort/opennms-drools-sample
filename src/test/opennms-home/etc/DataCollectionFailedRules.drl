@@ -1,0 +1,87 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.net.InetAddress;
+import java.util.Date;
+
+import org.opennms.core.utils.InetAddressUtils;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils;
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+global org.opennms.netmgt.correlation.drools.NodeService nodeService;
+global java.lang.Integer DATA_COLLECTION_FAILED_HOLDDOWN_TIME;
+
+
+/*
+ * 11)  (Action triggering) If data collection fails
+ * Then wait 3 minutes,
+ * If succeeds during that time then disregard
+ * Else generate event that has alarm-data and will be forwarded by NBIs
+ */
+
+declare DataCollectionFailedSituation
+	node : Long
+        iface : String
+        service : String
+	timerId : Integer
+end
+
+rule "dataCollectionFailed event received for node for service on interface"
+	salience 100
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/dataCollectionFailed", $nodeid : nodeid, $iface : interface, $service : service )
+		not( DataCollectionFailedSituation( node == $nodeid, iface == $iface, service == $service ) )
+	then
+		retract( $e );
+		DataCollectionFailedSituation situation = new DataCollectionFailedSituation();
+		situation.setNode( $nodeid );
+		situation.setIface( $iface );
+		situation.setService( $service );
+		situation.setTimerId( engine.setTimer( DATA_COLLECTION_FAILED_HOLDDOWN_TIME ) );
+		insert( situation );
+		println( "Found dataCollectionFailed event for service " + $service + " on interface " + $iface + " of node " + $nodeid +" . Inserted new situation " + situation + " and retracted event." );
+end
+
+rule "dataCollectionSucceeded event received for node for service on interface with existing dataCollectionFailed situation"
+	salience 100
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/dataCollectionSucceeded", $nodeid : nodeid, $iface : interface, $service : service )
+		$situation : DataCollectionFailedSituation( node == $nodeid, iface == $iface, service == $service )
+	then
+		retract( $e );
+		retract( $situation );
+		println( "Found dataCollectionSucceeded event for service " + $service + " on interface " + $iface + " of node with DataCollectionFailedSituation " + $situation + ". Retracted nodeUp and situation. End of line." );
+end
+
+rule "timer expired on a DataCollectionFailedSituation"
+	salience 1000
+	when
+		$expiration : TimerExpired( $timerId : id )
+		$situation : DataCollectionFailedSituation( timerId == $timerId, $nodeid : node, $iface : iface, $service : service )
+	then
+		println( "Hold-down timer expired for DataCollectionFailedSituation " + $situation + ".  Retracting expiration and situation; sending escalation event" );
+		retract( $expiration );
+		retract( $situation );
+		sendVerifiedDataCollectionFailedEvent( engine, $nodeid, $iface, $service, DATA_COLLECTION_FAILED_HOLDDOWN_TIME );
+end
+
+
+function void sendVerifiedDataCollectionFailedEvent( DroolsCorrelationEngine engine, Long nodeId, String iface, String service, Integer holdDownTime ) {
+		Integer holdDownTimeSec = holdDownTime / 1000;
+		EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/dataCollectionFailedPastHoldDownTime", "Drools")
+                .setNodeid(nodeId.intValue())
+                .setInterface(InetAddress.getByName(iface))
+		.setService(service)
+		.addParam("correlationEngineName", "Drools")
+		.addParam("correlationRuleSetName", engine.getName())
+		.addParam("correlationComments", "Observed a data collection failed situation enduring at least " + holdDownTimeSec + " seconds")
+		.addParam("holdDownTime", holdDownTimeSec.toString());
+		engine.sendEvent(bldr.getEvent());
+}
+
+function void println(Object msg) {
+	System.out.println(new Date() + " : " + msg);
+}
