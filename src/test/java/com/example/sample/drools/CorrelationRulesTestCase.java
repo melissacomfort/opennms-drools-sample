@@ -32,14 +32,14 @@ import static org.junit.Assert.assertEquals;
 import static org.opennms.core.utils.InetAddressUtils.addr;
 
 import org.junit.runner.RunWith;
-import org.opennms.netmgt.EventConstants;
+import org.opennms.netmgt.events.api.EventConstants;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import org.opennms.netmgt.correlation.CorrelationEngineRegistrar;
 import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
 import org.opennms.test.JUnitConfigurationEnvironment;
-import org.opennms.netmgt.eventd.mock.EventAnticipator;
-import org.opennms.netmgt.eventd.mock.MockEventIpcManager;
+import org.opennms.netmgt.dao.mock.EventAnticipator;
+import org.opennms.netmgt.dao.mock.MockEventIpcManager;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.xml.event.Event;
 import org.opennms.core.test.ConfigurationTestUtils;
