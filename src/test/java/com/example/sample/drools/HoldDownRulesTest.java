@@ -135,6 +135,7 @@ public class HoldDownRulesTest extends CorrelationRulesTestCase {
         bldr.setNodeid( 1 );
         bldr.setInterface(InetAddress.getByName("127.0.0.1"));
         bldr.setService("SNMP");
+        bldr.addParam("reason", "solar flares");
         bldr.addParam( "holdDownTime", "180" );
 
         anticipate( bldr.getEvent() );
@@ -317,6 +318,7 @@ public class HoldDownRulesTest extends CorrelationRulesTestCase {
         .setNodeid(nodeid)
         .setInterface( addr( ipaddr ) )
         .setService( svcName )
+        .addParam("reason", "solar flares")
         .getEvent();
 
     }
