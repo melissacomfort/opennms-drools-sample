@@ -67,7 +67,7 @@
     <rule-file>file:src/test/opennms-home/etc/DataCollectionFailedRules.drl</rule-file>
     <event>uei.opennms.org/nodes/dataCollectionFailed</event>
     <event>uei.opennms.org/nodes/dataCollectionSucceeded</event>
-    <global name="DATA_COLLECTION_FAILED_HOLDDOWN_TIME" type="java.lang.Integer" value="180000"/>
+    <global name="DATA_COLLECTION_FAILED_HOLDDOWN_TIME" type="java.lang.Integer" value="660000"/>
   </rule-set>
 
   <!-- Disabled as it's not used, but useful as a reference
