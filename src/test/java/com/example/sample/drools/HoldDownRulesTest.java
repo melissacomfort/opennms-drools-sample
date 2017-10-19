@@ -49,7 +49,7 @@ public class HoldDownRulesTest extends CorrelationRulesTestCase {
     private static Integer HOLDDOWN_TIME = 30000;
     
     /** The hold down time for data collection failures */
-    private static Integer DC_HOLDDOWN_TIME = 180000;
+    private static Integer DC_HOLDDOWN_TIME = 660000;
 
     /** The node down past hold down UEI. */
     private static String NODE_DOWN_PAST_HOLDDOWN_UEI = "uei.opennms.org/nodes/correlation/nodeDownPastHoldDownTime";
