@@ -56,7 +56,6 @@ public class CiscoServiceDownTimerRulesTest extends CorrelationRulesTestCase {
         bldr.setNodeid(1);
         bldr.setInterface(InetAddress.getByName("127.0.0.1"));
         bldr.setService("Cisco RTMT Reporter Servlet");
-        bldr.addParam("reason", "solar flares");
         bldr.addParam("holdDownTime", "30");
 
         anticipate(bldr.getEvent());
@@ -99,14 +98,11 @@ public class CiscoServiceDownTimerRulesTest extends CorrelationRulesTestCase {
     public void testManagementServiceHoldDownTimerExpiredRules() throws Exception {
         getAnticipator().reset();
 
-        getAnticipator().reset();
-
         // In the end, we expect to see a down-past-holddown-time event only for node one
         EventBuilder bldr = new EventBuilder(CISCO_SERVICE_PAST_HOLDDOWN_UEI, "Drools");
         bldr.setNodeid(1);
         bldr.setInterface(InetAddress.getByName("127.0.0.1"));
         bldr.setService("SSH");
-        bldr.addParam("reason", "solar flares");
         bldr.addParam("holdDownTime", "20");
 
         anticipate(bldr.getEvent());
@@ -115,13 +111,13 @@ public class CiscoServiceDownTimerRulesTest extends CorrelationRulesTestCase {
 
         // Node one goes down at zero seconds
         Event event = createActualServiceLostEvent(EventConstants.NODE_LOST_SERVICE_EVENT_UEI, 1, "127.0.0.1", "SSH");
-        System.err.println("SENDING Cisco RTMT Reporter Servlet EVENT FOR NODE ONE!!");
+        System.err.println("SENDING SSH EVENT FOR NODE ONE!!");
         System.err.println("MAKE IT SO, NUMBER ONE!!!");
         engine.correlate(event);
 
         // Node two goes down at substantially zero seconds
-        event = createActualServiceLostEvent(EventConstants.NODE_LOST_SERVICE_EVENT_UEI, 2, "127.0.0.2", "WIM");
-        System.err.println("SENDING WMI EVENT FOR NODE TWO!!");
+        event = createActualServiceLostEvent(EventConstants.NODE_LOST_SERVICE_EVENT_UEI, 2, "127.0.0.2", "WMIM");
+        System.err.println("SENDING WMIM EVENT FOR NODE TWO!!");
         engine.correlate(event);
 
 
@@ -130,7 +126,7 @@ public class CiscoServiceDownTimerRulesTest extends CorrelationRulesTestCase {
         Thread.sleep(MANAGEMENT_SERVICE_HOLDDOWN_TIME / 2);
 
         // Node two comes back up at halftime
-        event = createActualServiceLostEvent(EventConstants.NODE_GAINED_SERVICE_EVENT_UEI, 2, "127.0.0.2", "WIM");
+        event = createActualServiceLostEvent(EventConstants.NODE_GAINED_SERVICE_EVENT_UEI, 2, "127.0.0.2", "WMIM");
         System.err.println("SENDING ALARM CLEAR EVENT FOR NODE TWO!!");
         engine.correlate(event);
 
@@ -155,7 +151,6 @@ public class CiscoServiceDownTimerRulesTest extends CorrelationRulesTestCase {
                 .setNodeid(nodeid)
                 .setInterface(InetAddressUtils.addr(ipaddr))
                 .setService(svcName)
-                .addParam("reason", "solar flares")
                 .getEvent();
     }
 }

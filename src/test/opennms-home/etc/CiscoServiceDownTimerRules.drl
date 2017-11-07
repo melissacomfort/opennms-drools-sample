@@ -27,7 +27,6 @@ declare Execution
   timerId: Integer
 end
 
-//TODO: Create a list of service name
 /*
  * Initial execution event  - send the initial translated event to generate notification
  */
@@ -45,10 +44,12 @@ rule "cisco actual service down events"
 		execution.setService($service);
         execution.setParms($parms );
         if(isActualService($service)){
-          execution.setTimerId(engine.setTimer(CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME ) );
+          execution.setTimerId(engine.setTimer(CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME ) );
+          println( "Found Management Service " + $service + " on interface " + $iface);
         }
         if(isManagementService($service)){
-          execution.setTimerId(engine.setTimer(CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME ) );
+          execution.setTimerId(engine.setTimer(CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME ) );
+          println( "Found Actual Service " + $service + " on interface " + $iface);
         }
         insert(execution);
         println( "Found service down expiration for service " + $service + " on interface " + $iface +"of node with service down" + execution + " Retracted event.");
@@ -87,6 +88,8 @@ function void sendCiscoServiceUpAlarm( DroolsCorrelationEngine engine, Long node
     Integer holdDownTimeSec = holdDownTime / 1000;
     EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/DownTimeHoldDownTime", "Drools")
     .setNodeid(nodeId.intValue())
+    .setInterface(InetAddress.getByName(iface))
+    .setService(service)
     .addParam("correlationEngineName", "Drools")
     .addParam("correlationRuleSetName", engine.getName())
     .addParam("correlationComments", "Observed a service is passed " + holdDownTimeSec + " seconds")
@@ -130,11 +133,14 @@ function List<String> getActualServiceList(){
    actualServList.add("Cisco RTMT Reporter Servlet");
    actualServList.add("A Cisco DB");
    actualServList.add("A Cisco DB Replicator");
+   actualServList.add("Host Resources Agent");
+   actualServList.add("System Application Agent");
    actualServList.add("Cisco Database Layer Monitor");
    actualServList.add("Cisco CallManager Serviceability");
    actualServList.add("Cisco CDP Agent");
    actualServList.add("Cisco RIS Data Collector");
    actualServList.add("Cisco CDP");
+   actualServList.add("MIB2 Agent");
    actualServList.add("Cisco Tomcat");
    actualServList.add("Cisco CallManager Serviceability RTMT");
    return actualServList;
