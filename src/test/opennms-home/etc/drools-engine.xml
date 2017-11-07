@@ -75,14 +75,12 @@
     <event>uei.opennms.org/vendor/Cisco/traps/cucsFaultClearNotifCLEAR</event>
     <global name="RAID_BATTERY_DEGRADED_HOLDDOWN_TIME" type="java.lang.Integer" value="900000"/> <!-- every 15 minutes-->
   </rule-set>
-
-  <!-- Disabled as it's not used, but useful as a reference
-  <rule-set name="resourcePoolUtilRules">
-    <rule-file>file:src/test/opennms-home/etc/ResourcePoolUtilRules.drl</rule-file>
-    <event>uei.opennms.org/vendor/Juniper/MFC/traps/resourcePoolUsageHigh</event>
-    <event>uei.opennms.org/vendor/Juniper/MFC/traps/resourcePoolUsageLow</event>
-    <global name="PAGING_HIGH_TRIGGER_COUNT" type="java.lang.Integer" value="10"/>
-    <global name="PAGING_HIGH_TIME_WINDOW" type="java.lang.Integer" value="3600000"/>
+  <rule-set name="ciscoActualService">
+    <rule-file>file:src/test/opennms-home/etc/CiscoServiceDownTimerRules.drl</rule-file>
+    <event>uei.opennms.org/nodes/nodeLostActualService</event>
+    <event>uei.opennms.org/nodes/nodeLostManagementService</event>
+    <global name="CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME" type="java.lang.Integer" value="30000"/> <!-- 1200000 every 20 minutes-->
+    <global name="CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/> <!--720000 every 12 minutes-->
   </rule-set>
-  -->
+
 </engine-configuration>

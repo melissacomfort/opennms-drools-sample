@@ -1,0 +1,145 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.net.InetAddress;
+import java.util.Date;
+import java.util.List;
+import java.util.ArrayList;
+
+import org.opennms.core.utils.InetAddressUtils;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.xml.event.Parm;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils;
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+global org.opennms.netmgt.correlation.drools.NodeService nodeService;
+
+global java.lang.Integer CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME;
+global java.lang.Integer CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME;
+
+declare Execution
+  node : Long
+  iface : String
+  service : String
+  parms: List
+  timerId: Integer
+end
+
+//TODO: Create a list of service name
+/*
+ * Initial execution event  - send the initial translated event to generate notification
+ */
+rule "cisco actual service down events"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/nodes/nodeLostService", $nodeid : nodeid, $iface : interface, $service : service, $parms : parmCollection )
+        not( Execution( node == $nodeid, iface == $iface, service == $service))
+        Boolean(booleanValue == true) from isManagementService($service)  || isActualService($service)
+    then
+        retract( $e );
+		Execution execution = new Execution();
+		execution.setNode( $nodeid );
+		execution.setIface( $iface );
+		execution.setService($service);
+        execution.setParms($parms );
+        if(isActualService($service)){
+          execution.setTimerId(engine.setTimer(CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME ) );
+        }
+        if(isManagementService($service)){
+          execution.setTimerId(engine.setTimer(CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME ) );
+        }
+        insert(execution);
+        println( "Found service down expiration for service " + $service + " on interface " + $iface +"of node with service down" + execution + " Retracted event.");
+end
+
+rule "cisco service regain"
+	salience 100
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeGainedService", $nodeid : nodeid, $iface : interface, $service : service )
+		$situation : Execution( node == $nodeid, iface == $iface, service == $service )
+	then
+		retract( $e );
+		retract( $situation );
+		println( "Found Service  " + $service + " on interface " + $iface + " of node with  " + $situation + ". Retracted Service. End of line." );
+end
+
+
+rule "cisco services timer expired"
+   salience 1000
+   when
+     $expiration : TimerExpired( $timerId : id )
+     $execution : Execution(timerId == $timerId, $nodeid : node, $iface : iface, $service : service, $parms : parms)
+   then
+       println( "Hold-down timer expired for "  + $execution + ".  Retracting expiration;  sending escalation event" );
+       retract( $expiration );
+       retract( $execution );
+       if ( isManagementService($service)){
+           sendCiscoServiceUpAlarm( engine, $nodeid, $iface, $service, $parms, CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME );
+       }
+       if(isActualService($service)){
+           sendCiscoServiceUpAlarm( engine, $nodeid, $iface, $service, $parms, CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME );
+       }
+end
+
+function void sendCiscoServiceUpAlarm( DroolsCorrelationEngine engine, Long nodeId, String iface, String service, List parms, Integer holdDownTime ) {
+    Integer holdDownTimeSec = holdDownTime / 1000;
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/DownTimeHoldDownTime", "Drools")
+    .setNodeid(nodeId.intValue())
+    .addParam("correlationEngineName", "Drools")
+    .addParam("correlationRuleSetName", engine.getName())
+    .addParam("correlationComments", "Observed a service is passed " + holdDownTimeSec + " seconds")
+    .addParam("holdDownTime", holdDownTimeSec.toString());
+    for (Object obj : parms) {
+       println(obj);
+       Parm p = (Parm) obj;
+       bldr.addParam(p.getParmName(), p.getValue().getContent());
+    }
+    engine.sendEvent(bldr.getEvent());
+}
+
+function boolean isManagementService(String serviceName){
+    boolean isManagementSrv = false;
+    List<String> mSrvList = getManagemntServiceList();
+
+    if (mSrvList.contains(serviceName)){
+        isManagementSrv = true;
+    }
+    return isManagementSrv;
+}
+
+function boolean isActualService(String serviceName){
+    boolean isActualSrv = false;
+    List<String> acSrvList = getActualServiceList();
+    if (acSrvList.contains(serviceName)){
+        isActualSrv = true;
+    }
+    return isActualSrv;
+}
+
+function List<String> getManagemntServiceList(){
+   List<String> managmentServList = new ArrayList<String>();
+   managmentServList.add("SSH");
+   managmentServList.add("SNMP");
+   return managmentServList;
+}
+
+function List<String> getActualServiceList(){
+   List<String> actualServList = new ArrayList<String>();
+   actualServList.add("Cisco RTMT Reporter Servlet");
+   actualServList.add("A Cisco DB");
+   actualServList.add("A Cisco DB Replicator");
+   actualServList.add("Cisco Database Layer Monitor");
+   actualServList.add("Cisco CallManager Serviceability");
+   actualServList.add("Cisco CDP Agent");
+   actualServList.add("Cisco RIS Data Collector");
+   actualServList.add("Cisco CDP");
+   actualServList.add("Cisco Tomcat");
+   actualServList.add("Cisco CallManager Serviceability RTMT");
+   return actualServList;
+}
+
+function void println(Object msg) {
+    System.out.println(new Date() + " : " + msg);
+}
