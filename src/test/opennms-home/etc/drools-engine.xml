@@ -77,8 +77,8 @@
   </rule-set>
   <rule-set name="ciscoActualService">
     <rule-file>file:src/test/opennms-home/etc/CiscoServiceDownTimerRules.drl</rule-file>
-    <event>uei.opennms.org/nodes/nodeLostActualService</event>
-    <event>uei.opennms.org/nodes/nodeLostManagementService</event>
+    <event>uei.opennms.org/nodes/nodeLostService</event>
+    <event>uei.opennms.org/nodes/nodeGainedService</event>
     <global name="CISCO_ACTUAL_SERVICE_HOLDDOWN_TIME" type="java.lang.Integer" value="30000"/> <!-- 1200000 every 20 minutes-->
     <global name="CISCO_MANAGEMENT_SERVICE_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/> <!--720000 every 12 minutes-->
   </rule-set>
