@@ -37,7 +37,7 @@ public class BatteryDegradeHoldDownRulesTest extends CorrelationRulesTestCase {
     /**
      * The hold down time for cucsFaultActiveNotifMINOR is 15 minutes
      */
-    private static Integer BDG_HOLDDOWN_TIME = 900000;
+    private static Integer BDG_HOLDDOWN_TIME = 20000; //900000;
 
     /**
      * resend storage battery downgrade the alarm with increase the severity level .

@@ -10,12 +10,20 @@ import org.opennms.netmgt.xml.event.Event;
 import org.opennms.netmgt.xml.event.Parm;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.events.api.EventConstants;
-import org.opennms.netmgt.model.events.EventUtils;
+import org.opennms.netmgt.model.events.EventUtils
+import java.util.regex.Pattern
+import java.util.regex.Matcher;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.opennms.netmgt.dao.api.NodeDao;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.TransactionStatus;
+import org.opennms.netmgt.model.OnmsNode;
 
 global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
 global org.opennms.netmgt.correlation.drools.NodeService nodeService;
 global java.lang.Integer DATA_COLLECTION_FAILED_HOLDDOWN_TIME;
-
+global org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+global org.opennms.netmgt.dao.api.NodeDao nodeDao;
 
 /*
  * 11)  (Action triggering) If data collection fails
@@ -24,12 +32,15 @@ global java.lang.Integer DATA_COLLECTION_FAILED_HOLDDOWN_TIME;
  * Else generate event that has alarm-data and will be forwarded by NBIs
  */
 
+
 declare DataCollectionFailedSituation
 	node : Long
-        iface : String
-        service : String
-        parms : List
+    iface : String
+    service : String
+    parms : List
 	timerId : Integer
+    orgnode: Long
+    orgiface: String
 end
 
 rule "dataCollectionFailed event received for node for service on interface"
@@ -38,26 +49,82 @@ rule "dataCollectionFailed event received for node for service on interface"
 		$e : Event( $uei : uei == "uei.opennms.org/nodes/dataCollectionFailed", $nodeid : nodeid, $iface : interface, $service : service, $parms : parmCollection )
 		not( DataCollectionFailedSituation( node == $nodeid, iface == $iface, service == $service ) )
 	then
-		retract( $e );
-		DataCollectionFailedSituation situation = new DataCollectionFailedSituation();
-		situation.setNode( $nodeid );
-		situation.setIface( $iface );
-		situation.setService( $service );
-                situation.setParms( $parms );
-		situation.setTimerId( engine.setTimer( DATA_COLLECTION_FAILED_HOLDDOWN_TIME ) );
-		insert( situation );
-		println( "Found dataCollectionFailed event for service " + $service + " on interface " + $iface + " of node " + $nodeid + " . Inserted new situation " + situation + " and retracted event." );
+	    final NodeDao localNode = nodeDao;
+	    println("dataCollectionFailed NodeDao Instance: " + localNode);
+	    String newIface =  $iface;
+	    Long nodeID = $nodeid;
+        if (isXMLService($service) && FailedReason($parms)){
+           newIface =  "127.0.0.1";
+           String localhostNodeId = transactionTemplate.execute(new TransactionCallback<String>() {
+              public String doInTransaction(TransactionStatus status) {
+                  List<OnmsNode> nodes = null;
+                  if (localNode != null){
+		              nodes = localNode.findByLabel("127.0.0.1"); // My local instance has 127.0.0.1 as a label
+                      if(nodes == null){
+                         nodes = localNode.findByLabel("localhost");
+                      }
+                      if (nodes != null && nodes.size() > 0){
+                          return nodes.get(0).getNodeId();
+                      }
+                  }
+                  return null;
+              }
+           });
+           if(localhostNodeId != null){
+              nodeID = Long.valueOf(localhostNodeId);
+           }
+        }
+        $e.setInterface(newIface);
+        $e.setNodeid(nodeID);
+        retract($e);
+        DataCollectionFailedSituation situation = new DataCollectionFailedSituation();
+        situation.setNode(nodeID );
+        situation.setIface(newIface);
+        situation.setService( $service );
+        situation.setOrgnode($nodeid);
+        situation.setOrgiface($iface);
+        situation.setParms( $parms );
+        situation.setTimerId( engine.setTimer( DATA_COLLECTION_FAILED_HOLDDOWN_TIME ) );
+        insert(situation );
+        println( "Found dataCollectionFailed event for service " + $service + " on interface " + $iface + " of node " + $nodeid + " . Inserted new situation " + situation + " and retracted event." );
 end
 
 rule "dataCollectionSucceeded event received for node for service on interface with existing dataCollectionFailed situation"
 	salience 100
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/nodes/dataCollectionSucceeded", $nodeid : nodeid, $iface : interface, $service : service )
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/dataCollectionSucceeded", $nodeid : nodeid, $iface : interface, $service : service)
 		$situation : DataCollectionFailedSituation( node == $nodeid, iface == $iface, service == $service )
 	then
-		retract( $e );
-		retract( $situation );
-		println( "Found dataCollectionSucceeded event for service " + $service + " on interface " + $iface + " of node with DataCollectionFailedSituation " + $situation + ". Retracted dataCollectionSucceeded and situation. End of line." );
+        final NodeDao localNode = nodeDao;
+        println("dataCollectionSucceeded NodeDao Instance: " + localNode);
+        String newIface =  $iface;
+        Long nodeID = $nodeid;
+           if (isXMLService($service) && FailedReason($situation.getParms())){
+            newIface =  "127.0.0.1";
+            String localhostNodeId =  transactionTemplate.execute(new TransactionCallback<String>() {
+                public String doInTransaction(TransactionStatus status) {
+                  List<OnmsNode> nodes = null;
+                  nodes = localNode.findByLabel("127.0.0.1"); // My local instance has 127.0.0.1 as a label
+                  if(nodes == null){
+                     nodes = localNode.findByLabel("localhost");
+                  }
+                  if (nodes != null && nodes.size() > 0){
+                     return nodes.get(0).getNodeId();
+                  }
+                  return null;
+                }
+            });
+         if(localhostNodeId != null){
+            nodeID = Long.valueOf(localhostNodeId);
+         }
+        }
+        $e.setInterface(newIface);
+        $e.setNodeid(nodeID);
+        $situation.setIface(newIface);
+        $situation.setNode(nodeID );
+        retract( $e );
+        retract( $situation );
+        println( "Found dataCollectionSucceeded event for service " + $service + " on interface " + $iface + " of node with DataCollectionFailedSituation " + $situation + ". Retracted dataCollectionSucceeded and situation. End of line." );
 end
 
 rule "timer expired on a DataCollectionFailedSituation"
@@ -69,28 +136,61 @@ rule "timer expired on a DataCollectionFailedSituation"
 		println( "Hold-down timer expired for DataCollectionFailedSituation " + $situation + ".  Retracting expiration and situation; sending escalation event" );
 		retract( $expiration );
 		retract( $situation );
-		sendVerifiedDataCollectionFailedEvent( engine, $nodeid, $iface, $service, $parms, DATA_COLLECTION_FAILED_HOLDDOWN_TIME );
+		sendVerifiedDataCollectionFailedEvent( engine, $nodeid, $iface, $service, $parms, DATA_COLLECTION_FAILED_HOLDDOWN_TIME, $situation.getOrgnode(), $situation.getOrgiface() );
 end
 
 
-function void sendVerifiedDataCollectionFailedEvent( DroolsCorrelationEngine engine, Long nodeId, String iface, String service, List parms, Integer holdDownTime ) {
-		Integer holdDownTimeSec = holdDownTime / 1000;
-		EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/dataCollectionFailedPastHoldDownTime", "Drools")
-                .setNodeid(nodeId.intValue())
-                .setInterface(InetAddress.getByName(iface))
-		.setService(service)
-		.addParam("correlationEngineName", "Drools")
-		.addParam("correlationRuleSetName", engine.getName())
-		.addParam("correlationComments", "Observed a data collection failed situation enduring at least " + holdDownTimeSec + " seconds")
-		.addParam("holdDownTime", holdDownTimeSec.toString());
-                for (Object obj : parms) {
-                    println(obj);
-                    Parm p = (Parm) obj;
-                    bldr.addParam(p.getParmName(), p.getValue().getContent());
-                }
-		engine.sendEvent(bldr.getEvent());
+function void sendVerifiedDataCollectionFailedEvent( DroolsCorrelationEngine engine, Long nodeId, String iface, String service, List parms, Integer holdDownTime, Long orgNodeId, String orgIface ) {
+    Integer holdDownTimeSec = holdDownTime / 1000;
+    Long nodeID = nodeId;
+    String ipInterface = iface;
+    if ((orgNodeId != null && orgNodeId > 0) && !orgNodeId.equals(nodeId)){
+        nodeID = orgNodeId;
+    }
+    if ((orgIface != null && orgIface != "" ) && !orgIface.equals(iface)){
+        ipInterface = orgIface;
+    }
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/dataCollectionFailedPastHoldDownTime", "Drools")
+    .setNodeid(nodeId.intValue())
+    .setInterface(InetAddress.getByName(iface))
+    .setService(service)
+    .addParam("correlationEngineName", "Drools")
+    .addParam("correlationRuleSetName", engine.getName())
+    .addParam("correlationComments", "Observed a data collection failed situation enduring at least " + holdDownTimeSec + " seconds")
+    .addParam("orgnodeid", nodeID)
+    .addParam("orgiface", ipInterface)
+    .addParam("holdDownTime", holdDownTimeSec.toString());
+    for (Object obj : parms) {
+        println(obj);
+        Parm p = (Parm) obj;
+        bldr.addParam(p.getParmName(), p.getValue().getContent());
+    }
+    println("Send Event: " + bldr.getEvent());
+    engine.sendEvent(bldr.getEvent());
+}
+
+function boolean isXMLService(String service){
+   return service.equalsIgnoreCase("XML Service");
+}
+
+function boolean FailedReason(List parms) {
+    Pattern pattern = Pattern.compile("^The URL .*cusp_perfmon.groovy.* contains unknown placeholders.$", Pattern.DOTALL);
+    for (Object obj : parms) {
+       println(obj);
+       Parm p = (Parm) obj;
+       if(p.getParmName().equalsIgnoreCase("reason")){
+          String failedReason = p.getValue().getContent();
+          Matcher matcher = pattern.matcher(failedReason);
+          if (matcher.matches()){
+             println("The Failed Reason is match with JIRA case");
+             return true;
+          }
+       }
+    }
+   return false;
 }
 
 function void println(Object msg) {
 	System.out.println(new Date() + " : " + msg);
 }
+
