@@ -25,11 +25,12 @@ end
  * Initial execution event  - send the initial translated event to generate notification
  */
 rule "cucsFaultActiveNotifMINOR"
-    salience 100
-    when
-        $e : Event( $uei : uei == "uei.opennms.org/vendor/Cisco/traps/cucsFaultActiveNotifMINOR", $nodeid : nodeid, $parms : parmCollection)
-        not( Execution( node == $nodeid, cucsFaultIndex == getFaultIndex($e)) )
-    then
+        salience 100
+        when
+            $e : Event( $uei : uei == "uei.opennms.org/vendor/Cisco/traps/cucsFaultActiveNotifMINOR", $nodeid : nodeid, $parms : parmCollection)
+            eval(getFaultCode($e)=="997")
+            not( Execution( node == $nodeid, cucsFaultIndex == getFaultIndex($e)))
+        then
         retract( $e );
 		Execution execution = new Execution();
 		execution.setNode( $nodeid );
@@ -44,6 +45,7 @@ rule "cucsFaultClearNotifCLEAR"
    salience 100
    when
        $e : Event( $uei : uei == "uei.opennms.org/vendor/Cisco/traps/cucsFaultClearNotifCLEAR", $nodeid : nodeid, $parms: parmCollection)
+       eval(getFaultCode($e)=="997")
        $execution : Execution( node == $nodeid, cucsFaultIndex == getFaultIndex($e))
    then
        retract( $e );
@@ -61,8 +63,6 @@ rule "cucsFaultActiveNotifRAID_BATTERY_DEGRADED"
        retract( $expiration );
        retract( $execution );
        sendCucsFaultActiveNotifRAID_BATTERY_DEGRADED( engine, $nodeid ,$parms, RAID_BATTERY_DEGRADED_HOLDDOWN_TIME );
-
-
 end
 
 function void sendCucsFaultActiveNotifRAID_BATTERY_DEGRADED( DroolsCorrelationEngine engine, Long nodeId, List parms, Integer holdDownTime ) {
@@ -91,6 +91,17 @@ function String getFaultIndex(Event e) {
    }
    return faultIndex;
 }
+
+function String getFaultCode(Event e) {
+   String faultCode=null;
+
+   Parm p=e.getParm("cucsFaultCode");
+   if(p!=null) {
+	faultCode=p.getValue().getContent();
+   }
+   return faultCode;
+}
+
 
 function void println(Object msg) {
     System.out.println(new Date() + " : " + msg);
