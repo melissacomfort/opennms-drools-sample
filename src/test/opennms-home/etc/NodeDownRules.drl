@@ -13,14 +13,6 @@ global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
 global org.opennms.netmgt.correlation.drools.NodeService nodeService;
 global java.lang.Integer NODE_DOWN_HOLDDOWN_TIME;
 
-
-/*
- * 11)  (Action triggering) If Node down (any MFC) 
- * Then wait 30 seconds,
- * If Trap is cancelled then Disregard
- * Else  generate 1 single critical alarm to be forwarded via SNMP to VizGems (IP addess) and email to  nmsadmin@att.com 
- */
-
 declare NodeDownSituation
 	node : Long
 	timerId : Integer

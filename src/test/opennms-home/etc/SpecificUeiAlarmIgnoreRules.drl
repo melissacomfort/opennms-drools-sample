@@ -1,0 +1,218 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.util.Date;
+import java.util.List;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.xml.event.Parm;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils;
+import java.text.SimpleDateFormat
+import java.text.DateFormat;
+import java.util.TimeZone
+import java.util.Calendar
+import java.util.GregorianCalendar;
+import java.time.OffsetTime
+import org.opennms.core.utils.InetAddressUtils
+import java.util.Locale
+import java.time.OffsetDateTime
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.LocalTime
+import java.time.Instant
+import java.text.Format
+import java.text.ParseException
+import java.time.LocalDateTime
+import java.time.ZoneId;
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+
+/*
+ * Initial execution event  - send the initial translated event to generate notification
+ */
+rule "AlarmRestart"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/alarmRestart", $nodeid : nodeid)
+    eval(isEventSuppressEventPeriod($e)==true);
+  then
+    retract( $e );
+    println( "Initial AlarmRestart receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+end
+
+rule "Trigger AlarmRestart"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/alarmRestart", $nodeid : nodeid)
+    eval(isEventSuppressEventPeriod($e)==false);
+  then
+    println( "Trigger  AlarmRestart event while time is not suppression period for node " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+    sendAlarmRestart(engine, $e.getNodeid(), $e.getParmCollection());
+end
+
+rule "AvAesAepConnLinkDownMajor"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown",  $nodeid : nodeid,  $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==true);
+    eval(getVbvalue($e)=="3" || getVbvalue($e)=="4")
+  then
+    println( "Initial avAesAepConnLinkDown receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+
+end
+
+rule "Trigger  AvAesAepConnLinkDownMajor"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown", $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==false);
+    eval(getVbvalue($e)=="3" || getVbvalue($e)=="4")
+  then
+    println( "Trigger AvAesAepConnLinkDownMajor receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+    sendAvAesAepConnLinkDown(engine, "uei.opennms.org/vendor/Avaya/traps/avAesWebLMConnLinkDownMAJOR", $e.getNodeid(), $e.getParmCollection());
+end
+
+rule "AvAesAepConnLinkDownMinor"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown",  $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==true);
+    eval(getVbvalue($e)=="5")
+  then
+    println( "Initial avAesAepConnLinkDown receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+
+end
+
+rule "Trigger  AvAesAepConnLinkDownMinor"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown",  $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==false);
+    eval(getVbvalue($e)=="5")
+  then
+    println( "Trigger AvAesAepConnLinkDownMinor receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+    sendAvAesAepConnLinkDown(engine, "uei.opennms.org/vendor/Avaya/traps/avAesWebLMConnLinkDownMINOR", $e.getNodeid(), $e.getParmCollection());
+end
+
+rule "AvAesAepConnLinkDownWarning"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown",  $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==true);
+    eval(getVbvalue($e)=="6")
+  then
+    println( "Initial avAesAepConnLinkDown receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+end
+
+rule "Trigger  AvAesAepConnLinkDownWarning"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown",  $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==false);
+    eval(getVbvalue($e)=="6")
+  then
+    println( "Trigger AvAesAepConnLinkDownWarning receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+    sendAvAesAepConnLinkDown(engine, "uei.opennms.org/vendor/Avaya/traps/avAesWebLMConnLinkDownWARNING", $e.getNodeid(), $e.getParmCollection());
+end
+
+rule "AvAesAepConnLinkDownClear"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesWebLMConnLinkDownCLEARED",  $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==true);
+    eval(getVbvalue($e)=="1")
+  then
+    println( "Initial avAesAepConnLinkDown receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+end
+
+rule "Trigger  AvAesAepConnLinkDownClear"
+  salience 100
+  when
+    $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avAesWebLMConnLinkDownCLEARED",  $nodeid : nodeid, $param : parmCollection)
+    eval(isEventSuppressEventPeriod($e)==false);
+    eval(getVbvalue($e)=="1")
+  then
+    println( "Trigger AvAesAepConnLinkDownClear receive " + $e.getNodeid() +" Time receive: " + $e.getTime());
+    retract( $e );
+    sendAvAesAepConnLinkDown(engine, "uei.opennms.org/vendor/Avaya/traps/avAesWebLMConnLinkDownCLEAR", $e.getNodeid(), $e.getParmCollection());
+end
+
+function void sendAlarmRestart(DroolsCorrelationEngine engine, Long nodeId, List parms ) {
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/vendor/Avaya/traps/alarmRestartNotWithinSuppressionTimePeriod", "Drools")
+    .setNodeid(nodeId.intValue())
+    .addParam("correlationEngineName", "Drools")
+    .addParam("correlationRuleSetName", engine.getName())
+    .addParam("correlationComments", "An alarmRestart is down not within the time that the system reboot.");
+     for (Object obj : parms) {
+        println(obj);
+        Parm p = (Parm) obj;
+        bldr.addParam(p.getParmName(), p.getValue().getContent());
+      }
+     engine.sendEvent(bldr.getEvent());
+}
+
+function void sendAvAesAepConnLinkDown(DroolsCorrelationEngine engine, String uei, Long nodeId, List parms) {
+    EventBuilder bldr = new EventBuilder(uei, "Drools")
+    .setNodeid(nodeId.intValue())
+    .addParam("correlationEngineName", "Drools")
+    .addParam("correlationRuleSetName", engine.getName())
+    .addParam("correlationComments", "An AEP Connection link is down not within the time that the system reboot.");
+     for (Object obj : parms) {
+        println(obj);
+        Parm p = (Parm) obj;
+        bldr.addParam(p.getParmName(), p.getValue().getContent());
+    }
+    engine.sendEvent(bldr.getEvent());
+}
+
+function boolean isEventSuppressEventPeriod(Event event){
+  boolean isSuppressEventPeriod = false;
+
+  LocalTime suppressionStartTime = LocalTime.parse( "21:50:00.000" );
+  System.out.println(suppressionStartTime);
+  LocalTime suppressionEndTime = LocalTime.parse( "22:10:00.000" );
+  System.out.println(suppressionEndTime);
+
+  LocalTime systemTime = eventimeToLocalTime(event) ;
+
+  if(systemTime.isAfter(suppressionStartTime) && systemTime.isBefore(suppressionEndTime)){
+    isSuppressEventPeriod = true;
+    System.out.println("Time is in suppression period");
+  }
+  return isSuppressEventPeriod;
+}
+
+function LocalTime eventimeToLocalTime(Event event){
+
+  Date eventTime = event.getTime();
+  Instant instant = Instant.ofEpochMilli(eventTime.getTime());
+  LocalTime localTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault()).toLocalTime();
+
+  System.out.println("Local Time: " + localTime);
+  return localTime;
+}
+
+
+function String getVbvalue(Event e) {
+   String vbValue=null;
+
+   Parm p=e.getParm("csAlarmSeverity");
+   if(p!=null) {
+	 vbValue=p.getValue().getContent();
+   }
+   println("Severity: " + vbValue);
+   return vbValue;
+}
+
+function void println(Object msg) {
+    System.out.println(new Date() + " : " + msg);
+}

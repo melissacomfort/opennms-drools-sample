@@ -14,13 +14,6 @@ global org.opennms.netmgt.correlation.drools.NodeService nodeService;
 global java.lang.Integer IFACE_DOWN_HOLDDOWN_TIME;
 
 
-/*
- * 12)  (Action triggering) If Interface down (any MFC) 
- * Then wait 30 seconds,
- * If Trap is cancelled then Disregard
- * Else  generate 1 single critical alarm to be forwarded via SNMP to VizGems (IP addess) and email to  nmsadmin@att.com 
- */
-
 declare InterfaceDownSituation
 	node : Long
 	interface : String
@@ -68,9 +61,9 @@ end
 
 function void sendVerifiedInterfaceDownEvent( DroolsCorrelationEngine engine, Long nodeId, String ipAddr, Integer holdDownTime ) {
 		Integer holdDownTimeSec = holdDownTime / 1000;
-        EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/interfaceDownPastHoldDownTime", "Drools")
-                .setNodeid(nodeId.intValue())
-                .setInterface(InetAddressUtils.addr(ipAddr))
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/interfaceDownPastHoldDownTime", "Drools")
+    .setNodeid(nodeId.intValue())
+    .setInterface(InetAddressUtils.addr(ipAddr))
 		.addParam("correlationEngineName", "Drools")
 		.addParam("correlationRuleSetName", engine.getName())
 		.addParam("correlationComments", "Observed an interface-down situation enduring at least " + holdDownTimeSec + " seconds")
