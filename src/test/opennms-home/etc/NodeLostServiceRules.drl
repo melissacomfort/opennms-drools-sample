@@ -3,7 +3,6 @@ package org.opennms.netmgt.correlation.drools;
 import java.net.InetAddress;
 import java.util.Date;
 import java.util.List;
-import java.util.ArrayList;
 
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
@@ -11,76 +10,102 @@ import org.opennms.netmgt.xml.event.Event;
 import org.opennms.netmgt.xml.event.Parm;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.events.api.EventConstants;
-import org.opennms.netmgt.model.events.EventUtils;
+import org.opennms.netmgt.model.events.EventUtils
 
 global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
 global org.opennms.netmgt.correlation.drools.NodeService nodeService;
-
-global java.lang.Integer NODE_LOST_SERVICE_HOLDDOWN_TIME;
-
-declare Execution
-  node : Long
-  iface : String
-  service : String
-  parms: List
-  timerId: Integer
-end
+global java.lang.Integer NLS_HOLDDOWN_TIME;
 
 /*
- * Initial execution event  - send the initial translated event to generate notification
+ * 11)  (Action triggering) If nodeLostService happens
+ * Then wait 1 minute
+ * If succeeds during that time then disregard
+ * Else generate event that has alarm-data and will be forwarded by NBIs
  */
-rule "nodeLostService event received for node"
-  salience 100
-  when
-    $e : Event( $uei : uei == "uei.opennms.org/nodes/nodeLostService", $nodeid : nodeid, $iface : interface, $service : service)
-    not( Execution( node == $nodeid, iface == $iface, service == $service))
-  then
-    retract( $e );
-		Execution execution = new Execution();
-		execution.setNode( $nodeid );
-		execution.setIface( $iface );
-		execution.setService($service);
-		execution.setTimerId(engine.setTimer(NODE_LOST_SERVICE_HOLDDOWN_TIME) );
-    insert(execution);
-    println( "Found service down expiration for service " + $service +" on interface " + $iface +" of node with service down" + execution + " Retracted event.");
+
+
+declare NodeLostServiceSituation
+    node : Long
+    iface : String
+    service : String
+    parms : List
+    timerId : Integer
+    orgsev : String
 end
 
-rule "Node Regained Service event received for node"
+rule "nodeLostService event received for node for service on interface"
 	salience 100
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeGainedService", $nodeid : nodeid, $iface : interface, $service : service )
-		$situation : Execution( node == $nodeid, iface == $iface, service == $service )
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeLostService", $nodeid : nodeid, $iface : interface, $service : service, $parms : parmCollection, $severity : severity )
+		not( NodeLostServiceSituation( node == $nodeid, iface == $iface, service == $service ) )
+	then
+            retract($e);
+            NodeLostServiceSituation situation = new NodeLostServiceSituation();
+            situation.setNode($nodeid );
+            situation.setIface($iface);
+            situation.setService( $service );
+            situation.setParms( $parms );
+            situation.setTimerId( engine.setTimer( NLS_HOLDDOWN_TIME ) );
+            situation.setOrgsev($severity);
+            insert(situation );
+            println( "Found nodeLostService event for service " + $service + " on interface " + $iface + " of node " + $nodeid + " . Inserted new situation " + situation + " and retracted event." );
+end
+
+rule "nodeRegainedService event received for node for service on interface with existing nodeLostService situation"
+	salience 100
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeRegainedService", $nodeid : nodeid, $iface : interface, $service : service)
+		$situation : NodeLostServiceSituation( node == $nodeid, iface == $iface, service == $service )
 	then
 		retract( $e );
 		retract( $situation );
-		println( "Found Regained service " + $service +" on interface " + $iface +" of node with node lost service " + $situation+ " Retracted event.");
+		println( "Found nodeRegainedService event for service " + $service + " on interface " + $iface + " of node with NodeLostServiceSituation " + $situation + ". Retracted nodeLostService and situation. End of line." );
 end
 
-rule "Node Lost services timer expired"
-   salience 1000
-   when
-     $expiration : TimerExpired( $timerId : id )
-     $execution : Execution(timerId == $timerId, $nodeid : node, $iface : iface, $service : service)
-   then
-       println( "Hold-down timer expired for "  + $execution + ".  Retracting expiration;  sending escalation event" );
-       retract( $expiration );
-       retract( $execution );
-       sendVerifiedNodeLostServiceEvent( engine, $nodeid, $iface, $service,  NODE_LOST_SERVICE_HOLDDOWN_TIME );
+rule "nodeRegainedService event with no situation"
+	salience 90
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeRegainedService", $nodeid : nodeid, $iface : interface, $service : service)
+		not(NodeLostServiceSituation( node == $nodeid, iface == $iface, service == $service ))
+	then
+		retract( $e );
+		println( "Found nodeRegainedService event for service " + $service + " on interface " + $iface + " of node with no NodeLostServiceSituation. Retracted event." );
 end
 
-function void sendVerifiedNodeLostServiceEvent( DroolsCorrelationEngine engine, Long nodeId, String iface, String service, Integer holdDownTime ) {
-  Integer holdDownTimeSec = holdDownTime / 1000;
-  EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/nodeLostServicePastHoldDownTime", "Drools")
-  .setNodeid(nodeId.intValue())
-  .setInterface(InetAddress.getByName(iface))
-  .setService(service)
-	.addParam("correlationEngineName", "Drools")
-	.addParam("correlationRuleSetName", engine.getName())
-	.addParam("correlationComments", "Observed a service is passed " + holdDownTimeSec + " seconds")
-	.addParam("holdDownTime", holdDownTimeSec.toString());
-   engine.sendEvent(bldr.getEvent());
+rule "timer expired on a NodeLostServiceSituation"
+	salience 1000
+	when
+		$expiration : TimerExpired( $timerId : id )
+		$situation : NodeLostServiceSituation( timerId == $timerId, $nodeid : node, $iface : iface, $service : service, $parms : parms)
+	then
+		println( "Hold-down timer expired for NodeLostServiceSituation " + $situation + ".  Retracting expiration and situation; sending escalation event" );
+		retract( $expiration );
+		retract( $situation );
+		sendVerifiedNodeLostServiceEvent( engine, $nodeid, $iface, $service, $parms, NLS_HOLDDOWN_TIME, $situation.getOrgsev() );
+end
+
+
+function void sendVerifiedNodeLostServiceEvent( DroolsCorrelationEngine engine, Long nodeId, String iface, String service, List parms, Integer holdDownTime, String orgSeverity) {
+    Integer holdDownTimeSec = holdDownTime / 1000;
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/nodeLostServicePastHoldDownTime", "Drools")
+    .setNodeid(nodeId.intValue())
+    .setInterface(InetAddress.getByName(iface))
+    .setService(service)
+    .setSeverity(orgSeverity)
+    .addParam("correlationEngineName", "Drools")
+    .addParam("correlationRuleSetName", engine.getName())
+    .addParam("correlationComments", "Observed a node lost service situation enduring at least " + holdDownTimeSec + " seconds")
+    .addParam("holdDownTime", holdDownTimeSec.toString());
+    for (Object obj : parms) {
+        println(obj);
+        Parm p = (Parm) obj;
+        bldr.addParam(p.getParmName(), p.getValue().getContent());
+    }
+    println("Send Event: " + bldr.getEvent());
+    engine.sendEvent(bldr.getEvent());
 }
 
 function void println(Object msg) {
-    System.out.println(new Date() + " : " + msg);
+	System.out.println(new Date() + " : " + msg);
 }
+

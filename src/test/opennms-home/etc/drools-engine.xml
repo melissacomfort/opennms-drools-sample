@@ -72,22 +72,23 @@
 		<event>uei.opennms.org/vendor/Avaya/traps/alarmRestart</event>
 		<event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown</event>
 	</rule-set>
-	<rule-set name="nodeDownHoldDownRules">
-		<rule-file>file:src/test/opennms-home/etc/NodeDownRules.drl</rule-file>
-		<event>uei.opennms.org/nodes/nodeDown</event>
-		<event>uei.opennms.org/nodes/nodeUp</event>
-		<global name="NODE_DOWN_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/> <!-- 3,600,000 every 60 minutes-->
-	</rule-set>
-	<rule-set name="interfaceDownHoldDownRules">
-		<rule-file>file:src/test/opennms-home/etc/InterfaceDownRules.drl</rule-file>
-		<event>uei.opennms.org/nodes/interfaceDown</event>
-		<event>uei.opennms.org/nodes/interfaceUp</event>
-		<global name="IFACE_DOWN_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/> <!-- 3,600,000 every 60 minutes-->
-	</rule-set>
-	<rule-set name="nodeLostServiceDownHoldDownRules">
-		<rule-file>file:src/test/opennms-home/etc/NodeLostServiceRules.drl</rule-file>
-		<event>uei.opennms.org/nodes/nodeLostService</event>
-		<event>uei.opennms.org/nodes/nodeGainedService</event>
-		<global name="NODE_LOST_SERVICE_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/> <!-- 3,600,000 every 60 minutes-->
-	</rule-set>
+  <!-- ON-439-->
+  <rule-set name="nodeLostServiceHolddownRules">
+    <rule-file>file:src/test/opennms-home/etc/NodeLostServiceRules.drl</rule-file>
+    <event>uei.opennms.org/nodes/nodeLostService</event>
+    <event>uei.opennms.org/nodes/nodeRegainedService</event>
+    <global name="NLS_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+  </rule-set>
+  <rule-set name="nodeDownHolddownRules">
+    <rule-file>file:src/test/opennms-home/etc/NodeDownRules.drl</rule-file>
+    <event>uei.opennms.org/nodes/nodeDown</event>
+    <event>uei.opennms.org/nodes/nodeUp</event>
+    <global name="ND_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+  </rule-set>
+  <rule-set name="interfaceDownHolddownRules">
+    <rule-file>file:src/test/opennms-home/etc/InterfaceDownRules.drl</rule-file>
+    <event>uei.opennms.org/nodes/interfaceDown</event>
+    <event>uei.opennms.org/nodes/interfaceUp</event>
+    <global name="IFD_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+  </rule-set>
 </engine-configuration>

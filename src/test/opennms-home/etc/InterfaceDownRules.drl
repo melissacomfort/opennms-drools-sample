@@ -1,76 +1,94 @@
 package org.opennms.netmgt.correlation.drools;
 
+import java.net.InetAddress;
 import java.util.Date;
+import java.util.List;
 
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
 import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.xml.event.Parm;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.events.api.EventConstants;
-import org.opennms.netmgt.model.events.EventUtils;
+import org.opennms.netmgt.model.events.EventUtils
 
 global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
 global org.opennms.netmgt.correlation.drools.NodeService nodeService;
-global java.lang.Integer IFACE_DOWN_HOLDDOWN_TIME;
+global java.lang.Integer IFD_HOLDDOWN_TIME;
+
+/*
+ * 11)  (Action triggering) If interfaceDown happens
+ * Then wait 1 minute
+ * If succeeds during that time then disregard
+ * Else generate event that has alarm-data and will be forwarded by NBIs
+ */
 
 
 declare InterfaceDownSituation
-	node : Long
-	interface : String
-	timerId : Integer
+    node : Long
+    iface : String
+    timerId : Integer
 end
 
-rule "interfaceDown event received"
+rule "interfaceDown event received for interface of node"
 	salience 100
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/nodes/interfaceDown", $nodeid : nodeid, $ipaddr : interface )
-		not( InterfaceDownSituation( node == $nodeid, interface == $ipaddr ) )
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/interfaceDown", $nodeid : nodeid, $iface: interface )
+		not( InterfaceDownSituation( node == $nodeid, iface == $iface ) )
 	then
-		retract( $e );
-		InterfaceDownSituation situation = new InterfaceDownSituation();
-		situation.setNode( $nodeid );
-		situation.setInterface( $ipaddr );
-		situation.setTimerId( engine.setTimer( IFACE_DOWN_HOLDDOWN_TIME ) );
-		insert( situation );
-		println( "Found interfaceDown event for node " + $nodeid +"/" + $ipaddr + ". Inserted new situation " + situation + " and retracted event." );
+            retract($e);
+            InterfaceDownSituation situation = new InterfaceDownSituation();
+            situation.setNode($nodeid );
+            situation.setIface($iface);
+            situation.setTimerId( engine.setTimer( IFD_HOLDDOWN_TIME ) );
+            insert(situation );
+            println( "Found interfaceDown event for interface " + $iface + " on node " + $nodeid + ". Inserted new situation " + situation + " and retracted event." );
 end
 
-rule "interfaceUp event received for iface with existing interfaceDown situation"
+rule "interfaceUp event received for node with existing interfaceDown situation"
 	salience 100
 	when
-		$e : Event( $uei : uei == "uei.opennms.org/nodes/interfaceUp", $nodeid : nodeid, $ipaddr : interface )
-		$situation : InterfaceDownSituation( node == $nodeid, interface == $ipaddr )
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/interfaceUp", $nodeid : nodeid, $iface : interface)
+		$situation : InterfaceDownSituation( node == $nodeid, iface == $iface )
 	then
 		retract( $e );
 		retract( $situation );
-		println( "Found interfaceUp event for node/iface with InterfaceDownSituation " + $situation + ". Retracted interfaceUp and situation. End of line." );
+		println( "Found interfaceUp event for interface " + $iface + " on node " + $nodeid + " with InterfaceDownSituation " + $situation + ". Retracted event and situation. End of line." );
 end
 
-rule "timer expired on an InterfaceDownSituation"
+rule "interfaceUp event received for node with no existing interfaceDown situation"
+	salience 90
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/nodes/interfaceUp", $nodeid : nodeid, $iface : interface)
+		not(InterfaceDownSituation( node == $nodeid, iface == $iface ))
+	then
+		retract( $e );
+		println( "Found interfaceUp event for interface " + $iface + " on node " + $nodeid + " with no InterfaceDownSituation. Retracted event." );
+end
+
+rule "timer expired on a InterfaceDownSituation"
 	salience 1000
 	when
 		$expiration : TimerExpired( $timerId : id )
-		$situation : InterfaceDownSituation( timerId == $timerId, $nodeid : node, $ipaddr : interface )
+		$situation : InterfaceDownSituation( timerId == $timerId, $nodeid : node, $iface : iface)
 	then
 		println( "Hold-down timer expired for InterfaceDownSituation " + $situation + ".  Retracting expiration and situation; sending escalation event" );
 		retract( $expiration );
 		retract( $situation );
-		sendVerifiedInterfaceDownEvent( engine, $nodeid, $ipaddr, IFACE_DOWN_HOLDDOWN_TIME );
+		sendVerifiedInterfaceDownEvent( engine, $nodeid, $iface, IFD_HOLDDOWN_TIME );
 end
 
 
-function void sendVerifiedInterfaceDownEvent( DroolsCorrelationEngine engine, Long nodeId, String ipAddr, Integer holdDownTime ) {
-		Integer holdDownTimeSec = holdDownTime / 1000;
+function void sendVerifiedInterfaceDownEvent( DroolsCorrelationEngine engine, Long nodeId, String iface, Integer holdDownTime) {
+    Integer holdDownTimeSec = holdDownTime / 1000;
     EventBuilder bldr = new EventBuilder("uei.opennms.org/nodes/correlation/interfaceDownPastHoldDownTime", "Drools")
     .setNodeid(nodeId.intValue())
-    .setInterface(InetAddressUtils.addr(ipAddr))
-		.addParam("correlationEngineName", "Drools")
-		.addParam("correlationRuleSetName", engine.getName())
-		.addParam("correlationComments", "Observed an interface-down situation enduring at least " + holdDownTimeSec + " seconds")
-		.addParam("holdDownTime", holdDownTimeSec.toString());
-        engine.sendEvent(bldr.getEvent());
+    .setInterface(InetAddress.getByName(iface));
+    println("Send Event: " + bldr.getEvent());
+    engine.sendEvent(bldr.getEvent());
 }
 
 function void println(Object msg) {
 	System.out.println(new Date() + " : " + msg);
 }
+
