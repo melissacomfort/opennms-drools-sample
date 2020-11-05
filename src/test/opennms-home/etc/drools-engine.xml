@@ -91,4 +91,12 @@
     <event>uei.opennms.org/nodes/interfaceUp</event>
     <global name="IFD_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
   </rule-set>
+  <rule-set name="avAesAepConnLinkDown">
+    <rule-file>file:src/test/opennms-home/etc/AEPSwitchLinkHoldDownTimerRules.drl</rule-file>
+    <event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownWARNING</event>
+    <event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMAJOR</event>
+    <event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMINOR</event>
+    <event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownCLEARED</event>
+    <global name="AVAES_LINH_DOWN_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+  </rule-set>
 </engine-configuration>

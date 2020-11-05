@@ -11,6 +11,7 @@ import org.opennms.netmgt.xml.event.Parm;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.events.api.EventConstants;
 import org.opennms.netmgt.model.events.EventUtils
+import java.util.ArrayList
 
 global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
 global org.opennms.netmgt.correlation.drools.NodeService nodeService;
@@ -38,6 +39,7 @@ rule "nodeLostService event received for node for service on interface"
 	when
 		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeLostService", $nodeid : nodeid, $iface : interface, $service : service, $parms : parmCollection, $severity : severity )
 		not( NodeLostServiceSituation( node == $nodeid, iface == $iface, service == $service ) )
+		Boolean(booleanValue == false) from isServiceIgnored($service)
 	then
             retract($e);
             NodeLostServiceSituation situation = new NodeLostServiceSituation();
@@ -56,6 +58,7 @@ rule "nodeRegainedService event received for node for service on interface with 
 	when
 		$e : Event( $uei : uei == "uei.opennms.org/nodes/nodeRegainedService", $nodeid : nodeid, $iface : interface, $service : service)
 		$situation : NodeLostServiceSituation( node == $nodeid, iface == $iface, service == $service )
+		Boolean(booleanValue == false) from isServiceIgnored($service)
 	then
 		retract( $e );
 		retract( $situation );
@@ -107,5 +110,35 @@ function void sendVerifiedNodeLostServiceEvent( DroolsCorrelationEngine engine, 
 
 function void println(Object msg) {
 	System.out.println(new Date() + " : " + msg);
+}
+
+function boolean isServiceIgnored(String serviceName){
+    boolean isIgnoreSrv = false;
+    List<String> ignoreServices = getIgnoreServiceList();
+    if (ignoreServices.contains(serviceName)){
+        isIgnoreSrv = true;
+    }
+    return isIgnoreSrv;
+}
+
+function List<String> getIgnoreServiceList(){
+   List<String> ignoreServList = new ArrayList<String>();
+   ignoreServList.add("Cisco RTMT Reporter Servlet");
+   ignoreServList.add("A Cisco DB");
+   ignoreServList.add("A Cisco DB Replicator");
+   ignoreServList.add("Host Resources Agent");
+   ignoreServList.add("System Application Agent");
+   ignoreServList.add("Cisco Database Layer Monitor");
+   ignoreServList.add("Cisco CallManager Serviceability");
+   ignoreServList.add("Cisco CDP Agent");
+   ignoreServList.add("Cisco RIS Data Collector");
+   ignoreServList.add("Cisco CDP");
+   ignoreServList.add("MIB2 Agent");
+   ignoreServList.add("Cisco Tomcat");
+   ignoreServList.add("Cisco CallManager Serviceability RTMT");
+   ignoreServList.add("SSH");
+   ignoreServList.add("SNMP");
+
+   return ignoreServList;
 }
 

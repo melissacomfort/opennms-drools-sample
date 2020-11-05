@@ -3,6 +3,9 @@ package com.example.sample.drools;
 import static org.opennms.core.utils.InetAddressUtils.addr;
 
 import java.net.InetAddress;
+
+import org.drools.core.command.assertion.AssertEquals;
+import org.junit.Assert;
 import org.junit.Test;
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.netmgt.events.api.EventConstants;
@@ -204,6 +207,61 @@ public class HoldDownRulesTest extends CorrelationRulesTestCase {
         engine.correlate(event);
 
         getAnticipator().verifyAnticipated();
+    }
+
+    @Test
+    public void testNodeLostServiceInIgorListHoldDownRules() throws Exception {
+        testNodeLostServiceInIgnoreListHoldDownRules("nodeLostServiceHolddownRules");
+    }
+    private void testNodeLostServiceInIgnoreListHoldDownRules(String engineName) throws Exception {
+        getAnticipator().reset();
+        // In the end, we expect to see a down-past-holddown-time event only for node five
+        EventBuilder bldr = new EventBuilder(NODE_LOST_SERVICE_HOLDDOWN_TIME_UEI, "Drools");
+        bldr.setNodeid(5);
+        bldr.setInterface(InetAddress.getByName("127.3.3.5"));
+        bldr.setService("A Cisco DB");
+        bldr.addParam("holdDownTime", "30");
+
+        anticipate(bldr.getEvent());
+        DroolsCorrelationEngine engine = findEngineByName(engineName);
+
+        // Node three goes down at zero seconds
+        Event event = createSvcEvent(EventConstants.NODE_LOST_SERVICE_EVENT_UEI, 5, "127.3.3.5", "A Cisco DB");
+        System.err.println("SENDING SERVICE FIVE EVENT FOR NODE FIVE!!");
+        System.err.println("MAKE IT SO, NUMBER FIVE!!!");
+        engine.correlate(event);
+
+        // Node six goes down at substantially zero seconds
+        event = createSvcEvent(EventConstants.NODE_LOST_SERVICE_EVENT_UEI, 6, "127.4.4.6", "SIX");
+        System.err.println("SENDING SERVICE SIX EVENT FOR NODE SIX!!");
+        System.err.println("MAKE IT SO, NUMBER SIX!!!");
+        engine.correlate(event);
+
+
+        // Wait for half the hold-down time length
+        System.err.println("SLEEPING FOR " + (HOLDDOWN_TIME / 2) + " ms");
+        Thread.sleep(HOLDDOWN_TIME / 2);
+
+        // Node six comes back up at halftime
+        event = createSvcEvent( EventConstants.NODE_REGAINED_SERVICE_EVENT_UEI, 6, "127.4.4.6", "SIX");
+        System.err.println("SENDING ALARM CLEAR EVENT FOR NODE SIX!!");
+        System.err.println("MAKE IT ALARM CLEAR, NUMBER SIX!!!");
+        engine.correlate(event);
+
+        System.err.println("SLEEPING FOR " + (HOLDDOWN_TIME / 2 + 1000) + " ms");
+        Thread.sleep( HOLDDOWN_TIME / 2 + 1000);
+
+        // Node five comes back up, if NodeLostServiceSituation, time support to expired and the clear alarm should be sent out already.
+        // However, the event with service name "A Cisco DB"  is fall in "nodeRegainedService event with no situation", therefore, we expected this event as an anticipate
+        // outstanding event.
+        event = createSvcEvent(EventConstants.NODE_REGAINED_SERVICE_EVENT_UEI, 5, "127.3.3.5", "A Cisco DB");
+        System.err.println("Found nodeRegainedService event for service with no NodeLostServiceSituation. Retracted event.");
+        engine.correlate(event);
+
+        //We should expect 1 anticipate event because "A Cisco DB"  is fall in "nodeRegainedService event with no situation"
+        getAnticipator().verifyAnticipated(0, 0, 0, 1, 0);
+        int size = getAnticipator().getAnticipatedEvents().size() ;
+        Assert.assertEquals(size, 1);
     }
     /**
      * Creates the node down event.

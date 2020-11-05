@@ -51,7 +51,18 @@ rule "cucsFaultClearNotifCLEAR"
        retract( $e );
        retract( $execution );
        println( "Found cucsFaultClearNotifCLEAR event for service "  + $uei + " for node " + $nodeid + getFaultIndex($e) + $execution);
-end;
+end
+
+rule "cucsFaultClearNotifCLEAR after timer expires"
+   salience 100
+   when
+       $e : Event( $uei : uei == "uei.opennms.org/vendor/Cisco/traps/cucsFaultClearNotifCLEAR", $nodeid : nodeid, $parms: parmCollection)
+       eval(getFaultCode($e)=="997")
+       not( Execution( node == $nodeid, cucsFaultIndex == getFaultIndex($e)))
+   then
+       retract( $e );
+       println( "Found cucsFaultClearNotifCLEAR event after timer expired for node " + $nodeid + " / fault index " + getFaultIndex($e) + ".");
+end
 
 rule "cucsFaultActiveNotifRAID_BATTERY_DEGRADED"
    salience 1000
