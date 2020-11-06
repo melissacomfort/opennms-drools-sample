@@ -35,6 +35,7 @@ import org.opennms.netmgt.xml.event.Event;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+import static org.junit.Assert.assertEquals;
 import static org.opennms.core.utils.InetAddressUtils.addr;
 
 public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
@@ -59,21 +60,176 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
 
 
     @Test
-    public void testHoldDownMajorRules() throws Exception  {
-        //testHoldDownTimerAvAesAepConnLinkMajorDownRules("avAesAepConnLinkDown");
-    }
-
-    @Test
-    public void testHoldDownMinorRules() throws Exception  {
-        //testHoldDownTimerAvAesAepConnLinkDownMinorRules("avAesAepConnLinkDown");
-    }
-
-    @Test
     public void testHoldDownRules() throws Exception  {
         testHoldDownTimerAvAesAepConnLinkDownRules("avAesAepConnLinkDown");
     }
+    @Test
+    public void testHoldDownExistSituationRules() throws Exception  {
+        testHoldDownTimerAvAesAepConnLinkDownWithSituationExistRules("avAesAepConnLinkDown");
+    }
+
+    @Test
+    public void testClearedNoExistSituationRules() throws Exception  {
+        testClearedEventWithNoSituationRules("avAesAepConnLinkDown");
+    }
+
+    @Test
+    public void testClearedExistSituationRules() throws Exception  {
+        testClearedEventWithSituationRules("avAesAepConnLinkDown");
+    }
+
+    /**
+     * Test hold down rules.
+     *
+     * @throws InterruptedException the interrupted exception
+     */
+    private void testHoldDownTimerAvAesAepConnLinkDownWithSituationExistRules(String engineName) throws InterruptedException, UnknownHostException {
+        getAnticipator().reset();
+
+        // In the end, we expect to see a down-past-holddown-time event only for node one
+        EventBuilder bldr = new EventBuilder(AVAES_LINH_DOWN_WARNING_UEI, "Drools");
+        bldr.setNodeid(1);
+        bldr.setInterface(InetAddress.getByName("127.0.0.1"));
+        bldr.addParam("sysName", "sysName");
+        bldr.addParam("avAesServerIpAddressType", "avAesServerIpAddressType");
+        bldr.addParam("avAesServerIpAddress", "127.0.0.1");
+        bldr.addParam("entPhysicalAssetID", "entPhysicalAssetID");
+        bldr.addParam("csAlarmSeverity", "5");
+        bldr.addParam("sysObjectID", "sysObjectID");
+        bldr.addParam("avAesAlarmType", "avAesAlarmType");
+        bldr.addParam("avAesSessionId", "111111");
+        bldr.addParam("avAesSwitchName", "avAesSwitchName");
+        bldr.addParam("avAesAepConnIpAddressType", "avAesAepConnIpAddressType");
+        bldr.addParam("avAesAepConnIpAddress", "avAesAepConnIpAddress");
+        bldr.addParam("avAesLinkStatus", "avAesLinkStatus");
+        bldr.addParam("avAesEvtSrvReason", "avAesEvtSrvReason");
+
+        anticipate(bldr.getEvent());
+        DroolsCorrelationEngine engine = findEngineByName(engineName);
+
+        // Node one goes down at zero seconds
+        Event event = createAlarmLinkDownMinorEvent(1, "127.0.0.1","5");
+        System.err.println("SENDING avAesAepConnLinkDownMinor EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
+
+        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME/2 ) + " ms");
+        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME/2 );
+
+        event = createAlarmLinkDownMajorEvent(1, "127.0.0.1","4");
+        System.err.println("SENDING avAesAepConnLinkDownMajor EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
+
+        // Now wait for the hold-down timer to run out and the delayed alarm already sent out
+        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
+        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
+
+        int unanticipate = getAnticipator().unanticipatedEvents().size();
+        assertEquals(unanticipate, 1);
+
+    }
+    /**
+     * Test hold down rules.
+     *
+     * @throws InterruptedException the interrupted exception
+     */
+    private void testClearedEventWithNoSituationRules(String engineName) throws InterruptedException, UnknownHostException {
+        getAnticipator().reset();
+
+        // In the end, we expect to see a down-past-holddown-time event only for node one
+        EventBuilder bldr = new EventBuilder(AVAES_LINH_DOWN_WARNING_UEI, "Drools");
+        bldr.setNodeid(1);
+        bldr.setInterface(InetAddress.getByName("127.0.0.1"));
+        bldr.addParam("sysName", "sysName");
+        bldr.addParam("avAesServerIpAddressType", "avAesServerIpAddressType");
+        bldr.addParam("avAesServerIpAddress", "127.0.0.1");
+        bldr.addParam("entPhysicalAssetID", "entPhysicalAssetID");
+        bldr.addParam("csAlarmSeverity", "6");
+        bldr.addParam("sysObjectID", "sysObjectID");
+        bldr.addParam("avAesAlarmType", "avAesAlarmType");
+        bldr.addParam("avAesSessionId", "111111");
+        bldr.addParam("avAesSwitchName", "avAesSwitchName");
+        bldr.addParam("avAesAepConnIpAddressType", "avAesAepConnIpAddressType");
+        bldr.addParam("avAesAepConnIpAddress", "avAesAepConnIpAddress");
+        bldr.addParam("avAesLinkStatus", "avAesLinkStatus");
+        bldr.addParam("avAesEvtSrvReason", "avAesEvtSrvReason");
+
+        anticipate(bldr.getEvent());
+        DroolsCorrelationEngine engine = findEngineByName(engineName);
+
+        // Node one goes down at zero seconds
+        Event event = createAlarmLinkDownWarningEvent(1, "127.0.0.1","6");
+        System.err.println("SENDING avAesAepConnLinkDownWarning EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
+
+        // Node one goes down at zero seconds
+        event = createAlarmClearEvent(1, "127.0.0.1","1");
+        System.err.println("SENDING avAesAepConnLinkDownCleared with no situation EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
+
+        // Now wait for the hold-down timer to run out and the delayed alarm already sent out
+        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
+        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
+
+        int anticipate = getAnticipator().getAnticipatedEvents().size();
+        assertEquals(anticipate, 1);
+
+    }
+
+    /**
+     * Test hold down rules.
+     *
+     * @throws InterruptedException the interrupted exception
+     */
+    private void testClearedEventWithSituationRules(String engineName) throws InterruptedException, UnknownHostException {
+        getAnticipator().reset();
+
+        // In the end, we expect to see a down-past-holddown-time event only for node one
+        EventBuilder bldr = new EventBuilder(AVAES_LINH_DOWN_WARNING_UEI, "Drools");
+        bldr.setNodeid(1);
+        bldr.setInterface(InetAddress.getByName("127.0.0.1"));
+        bldr.addParam("sysName", "sysName");
+        bldr.addParam("avAesServerIpAddressType", "avAesServerIpAddressType");
+        bldr.addParam("avAesServerIpAddress", "127.0.0.1");
+        bldr.addParam("entPhysicalAssetID", "entPhysicalAssetID");
+        bldr.addParam("csAlarmSeverity", "6");
+        bldr.addParam("sysObjectID", "sysObjectID");
+        bldr.addParam("avAesAlarmType", "avAesAlarmType");
+        bldr.addParam("avAesSessionId", "111111");
+        bldr.addParam("avAesSwitchName", "avAesSwitchName");
+        bldr.addParam("avAesAepConnIpAddressType", "avAesAepConnIpAddressType");
+        bldr.addParam("avAesAepConnIpAddress", "avAesAepConnIpAddress");
+        bldr.addParam("avAesLinkStatus", "avAesLinkStatus");
+        bldr.addParam("avAesEvtSrvReason", "avAesEvtSrvReason");
+
+        anticipate(bldr.getEvent());
+        DroolsCorrelationEngine engine = findEngineByName(engineName);
+
+        // Node one goes down at zero seconds
+        Event event = createAlarmLinkDownWarningEvent(1, "127.0.0.1","6");
+        System.err.println("SENDING avAesAepConnLinkDownWarning EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
 
 
+        // Node one goes down at zero seconds
+        event = createAlarmClearEvent(1, "127.0.0.1","1");
+        System.err.println("SENDING avAesAepConnLinkDownCleared with no situation EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
+
+
+        // Now wait for the hold-down timer to run out and the delayed alarm already sent out
+        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
+        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
+
+        int anticipate = getAnticipator().getAnticipatedEvents().size();
+        assertEquals(anticipate, 1);
+
+    }
     /**
      * Test hold down rules.
      *
@@ -104,44 +260,15 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         DroolsCorrelationEngine engine = findEngineByName(engineName);
 
         // Node one goes down at zero seconds
-        Event event = createAlarmLinkDownWarningEvent(1, "127.0.0.1", "6");
-        System.err.println("SENDING avAesAepConnLinkDownMinor EVENT FOR NODE ONE!!");
+        Event event = createAlarmLinkDownWarningEvent(1, "127.0.0.1","6");
+        System.err.println("SENDING avAesAepConnLinkDownWarning EVENT FOR NODE ONE AGAIN!!");
         System.err.println("MAKE IT SO, NUMBER ONE!!!");
         engine.correlate(event);
 
-        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME/4) + " ms");
-        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME/4);
-
-        // Cleared alarm  with existing situation. Retract the event
-        event = createAlarmLinkDownMinorEvent(1, "127.0.0.1","5");
-        System.err.println("SENDING avAesAepConnLinkDownCLEARED EVENT FOR NODE ONE AGAIN!!");
-        System.err.println("MAKE IT SO, NUMBER TWO!!!");
-        engine.correlate(event);
 
         // Now wait for the hold-down timer to run out and the delayed alarm already sent out
-        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME/4) + " ms");
-        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME/4 );
-
-        // Cleared alarm  with existing situation. Retract the event
-        event = createAlarmLinkDownMinorEvent(1, "127.0.0.1","4");
-        System.err.println("SENDING avAesAepConnLinkDownCLEARED EVENT FOR NODE ONE AGAIN!!");
-        System.err.println("MAKE IT SO, NUMBER TWO!!!");
-        engine.correlate(event);
-
-        event = createAlarmClearEvent(1, "127.0.0.1","1");
-        System.err.println("SENDING avAesAepConnLinkDownCLEARED EVENT FOR NODE ONE AGAIN!!");
-        System.err.println("MAKE IT SO, NUMBER TWO!!!");
-        engine.correlate(event);
-
-        // Now wait for the hold-down timer to run out and the delayed alarm already sent out
-        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME/2 + 3000) + " ms");
-        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME/2  + 3000 );
-
-        // Send clear event but it too late
-        event = createAlarmClearEvent(1, "127.0.0.1","1");
-        System.err.println("SENDING avAesAepConnLinkDownCLEARED EVENT FOR NODE ONE AGAIN!!");
-        System.err.println("MAKE IT SO, NUMBER TWO!!!");
-        engine.correlate(event);
+        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
+        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
 
         getAnticipator().verifyAnticipated();
 

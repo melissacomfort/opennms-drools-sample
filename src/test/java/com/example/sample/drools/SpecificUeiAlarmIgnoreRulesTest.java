@@ -154,7 +154,7 @@ public class SpecificUeiAlarmIgnoreRulesTest extends CorrelationRulesTestCase {
         engine.correlate(event);
 
         // Wait for half the hold-down time length
-        System.err.println("SLEEPING FOR " + (SUPPRESSION_PERIOD_TIME_WINDOW / 2) + " ms");
+        System.err.println("SLEEPING FOR " + (SUPPRESSION_PERIOD_TIME_WINDOW ) + " ms");
         Thread.sleep(SUPPRESSION_PERIOD_TIME_WINDOW / 2);
 
         getAnticipator().verifyAnticipated();

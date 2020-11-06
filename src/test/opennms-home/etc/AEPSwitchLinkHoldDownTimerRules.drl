@@ -27,7 +27,7 @@ rule "avAesAepConnLinkDown received on inteface"
     salience 100
     when
           $e : Event( $uei :uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMAJOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMINOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownWARNING" , $nodeid : nodeid, $iface : interface, $parms : parmCollection )
-          not( ConnLinkDownSituation( node==$nodeid, iface==$iface, parms==$parms))
+          not( ConnLinkDownSituation( node==$nodeid, iface==$iface))
       then
           retract( $e );
           ConnLinkDownSituation connLinkDownSituation = new ConnLinkDownSituation();
@@ -42,10 +42,22 @@ rule "avAesAepConnLinkDown received on inteface"
 end
 
 
+rule "avAesAepConnLinkDown received when a situation exist"
+    salience 100
+    when
+        $e : Event( $uei :uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMAJOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMINOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownWARNING", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
+        $situation: ConnLinkDownSituation(node==$nodeid, iface==$iface)
+    then
+        retract( $e );
+        ConnLinkDownSituation situation = updateSeverity($situation, $e);
+        update(situation );
+        println( "Found avAesAepConnLinkDown when a situation exist for " + $uei + " for node " + $nodeid  + " Retracted event.");
+    end
+
 rule "avAesAepConnLinkDownCleared received for node on interace with existing situation"
       when
           $e : Event( $uei : uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownCLEARED", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
-          $situation: ConnLinkDownSituation(node==$nodeid, iface==$iface, parms==$parms)
+          $situation: ConnLinkDownSituation(node==$nodeid, iface==$iface)
       then
           retract( $e );
           retract( $situation );
@@ -57,49 +69,36 @@ rule "avAesAepConnLinkDownCleared received with no situation"
 	salience 90
 	when
 		$e : Event( $uei : uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownCLEARED", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
-		not(ConnLinkDownSituation(node==$nodeid, iface==$iface, parms==$parms))
+		not(ConnLinkDownSituation(node==$nodeid, iface==$iface))
 	then
 		retract( $e );
 		println( "Found avAesAepConnLinkDownCLEARED on interface " + $iface + " with no Situation. Retracted event." );
 end
 
-rule "avAesAepConnLinkDown received when a situation exist"
-    salience 100
-    when
-        $e : Event( $uei :uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMAJOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMINOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownWARNING", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
-        $situation: ConnLinkDownSituation(node==$nodeid, iface==$iface, parms==$parms)
-    then
-        retract( $e );
-        ConnLinkDownSituation situation = updateSeverity($situation, $e);
-        update(situation );
-        println( "Found avAesAepConnLinkDown when a situation exist for " + $uei + " for node " + $nodeid  + " Retracted event.");
-    end
-
-
 rule "avAesAepConnLinkDown timer expired"
-   salience 1000
+   salience 100
    when
        $expiration : TimerExpired( $timerId : id )
-       $situation  : ConnLinkDownSituation(timerId == $timerId, $nodeid : node, $iface : iface, $parms : parms)
+       $situation  : ConnLinkDownSituation(timerId == $timerId, $nodeid : node, $iface : iface)
    then
        println( "Hold-down timer expired for avAesAepConnLinkDown " + $situation + ".  Retracting expiration and situation; sending escalation event" );
        retract( $expiration );
        retract( $situation );
-       sendAvAesAepConnLinkDown(engine, $nodeid , $parms, AVAES_LINH_DOWN_HOLDDOWN_TIME, $situation );
+       sendAvAesAepConnLinkDown(engine, $nodeid , AVAES_LINH_DOWN_HOLDDOWN_TIME, $situation );
 end
 
-function void sendAvAesAepConnLinkDown( DroolsCorrelationEngine engine, Long nodeId, List parms, Integer holdDownTime, ConnLinkDownSituation situation ) {
-    Integer holdDownTimeSec = holdDownTime / 1000;
-    String uei = getUei(situation);
-    EventBuilder bldr = new EventBuilder(uei, "Drools")
+function void sendAvAesAepConnLinkDown( DroolsCorrelationEngine engine, Long nodeId, Integer holdDownTime, ConnLinkDownSituation situation ) {
+    String newUei = getUei(situation);
+    println("UEI: " + newUei);
+    EventBuilder bldr = new EventBuilder(newUei, "Drools")
     .setNodeid(nodeId.intValue())
     .setInterface(InetAddress.getByName(situation.getIface()));
-    for (Object obj : parms) {
+    for (Object obj : situation.getParms()) {
        println(obj);
        Parm p = (Parm) obj;
        bldr.addParam(p.getParmName(), p.getValue().getContent());
     }
-    engine.sendEvent(bldr.getEvent());
+       engine.sendEvent(bldr.getEvent());
 }
 
 function String getUei(ConnLinkDownSituation situation){
