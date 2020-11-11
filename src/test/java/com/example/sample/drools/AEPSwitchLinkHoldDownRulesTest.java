@@ -116,6 +116,7 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME/2 ) + " ms");
         Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME/2 );
 
+        //Another alarm coming at half time so it get suppressed
         event = createAlarmLinkDownMajorEvent(1, "127.0.0.1","4");
         System.err.println("SENDING avAesAepConnLinkDownMajor EVENT FOR NODE ONE AGAIN!!");
         System.err.println("MAKE IT SO, NUMBER ONE!!!");
@@ -125,9 +126,13 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
         Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
 
-        int unanticipate = getAnticipator().unanticipatedEvents().size();
-        assertEquals(unanticipate, 1);
+        event = createAlarmClearEvent(1, "127.0.0.1","1");
+        System.err.println("SENDING avAesAepConnLinkDownCleared with no situation EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
 
+
+        getAnticipator().getAnticipatedEvents();
     }
     /**
      * Test hold down rules.
@@ -158,14 +163,8 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         anticipate(bldr.getEvent());
         DroolsCorrelationEngine engine = findEngineByName(engineName);
 
-        // Node one goes down at zero seconds
-        Event event = createAlarmLinkDownWarningEvent(1, "127.0.0.1","6");
-        System.err.println("SENDING avAesAepConnLinkDownWarning EVENT FOR NODE ONE AGAIN!!");
-        System.err.println("MAKE IT SO, NUMBER ONE!!!");
-        engine.correlate(event);
-
-        // Node one goes down at zero seconds
-        event = createAlarmClearEvent(1, "127.0.0.1","1");
+        // Clear alarm when no situation exist
+        Event event = createAlarmClearEvent(1, "127.0.0.1","1");
         System.err.println("SENDING avAesAepConnLinkDownCleared with no situation EVENT FOR NODE ONE AGAIN!!");
         System.err.println("MAKE IT SO, NUMBER ONE!!!");
         engine.correlate(event);
@@ -214,6 +213,8 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         System.err.println("MAKE IT SO, NUMBER ONE!!!");
         engine.correlate(event);
 
+        System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME/2) + " ms");
+        Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME/2);
 
         // Node one goes down at zero seconds
         event = createAlarmClearEvent(1, "127.0.0.1","1");
@@ -225,6 +226,11 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         // Now wait for the hold-down timer to run out and the delayed alarm already sent out
         System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
         Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
+
+        event = createAlarmClearEvent(1, "127.0.0.1","1");
+        System.err.println("SENDING avAesAepConnLinkDownCleared with no situation EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
 
         int anticipate = getAnticipator().getAnticipatedEvents().size();
         assertEquals(anticipate, 1);
@@ -269,6 +275,12 @@ public class AEPSwitchLinkHoldDownRulesTest extends CorrelationRulesTestCase {
         // Now wait for the hold-down timer to run out and the delayed alarm already sent out
         System.err.println("SLEEPING FOR " + (AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000) + " ms");
         Thread.sleep(AVAES_LINH_DOWN_HOLDDOWN_TIME + 3000 );
+
+        // Node one goes down at zero seconds
+        event = createAlarmClearEvent(1, "127.0.0.1","1");
+        System.err.println("SENDING avAesAepConnLinkDownCleared with no situation EVENT FOR NODE ONE AGAIN!!");
+        System.err.println("MAKE IT SO, NUMBER ONE!!!");
+        engine.correlate(event);
 
         getAnticipator().verifyAnticipated();
 

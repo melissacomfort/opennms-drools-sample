@@ -8,7 +8,8 @@ import org.opennms.netmgt.xml.event.Parm;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.events.api.EventConstants;
 import org.opennms.netmgt.model.events.EventUtils
-import java.net.InetAddress;
+import java.net.InetAddress
+import org.opennms.netmgt.xml.event.Value;
 
 
 global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
@@ -34,11 +35,12 @@ rule "avAesAepConnLinkDown received on inteface"
           connLinkDownSituation.setNode( $nodeid );
           connLinkDownSituation.setIface( $iface );
           connLinkDownSituation.setParms($parms );
-          String alSeverity = getVbvalue($e);
+          String alSeverity = getSeverityValue($parms);
+          println("Serverity: " + alSeverity);
           connLinkDownSituation.setTimerId( engine.setTimer( AVAES_LINH_DOWN_HOLDDOWN_TIME ) );
           connLinkDownSituation.setSeverity(alSeverity);
           insert( connLinkDownSituation );
-          println( "Found avAesAepConnLinkDown Alarm when no situation exist  for " + $uei + " for node " + $nodeid  + ". Inserted new situation " + connLinkDownSituation + " and retracted event.");
+          println( "Found avAesAepConnLinkDown Alarm when no situation exist  for " + $uei + " for node " + $nodeid  +  "Interface: " + $iface + ". Inserted new situation " + connLinkDownSituation + " and retracted event.");
 end
 
 
@@ -48,13 +50,22 @@ rule "avAesAepConnLinkDown received when a situation exist"
         $e : Event( $uei :uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMAJOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownMINOR" || uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownWARNING", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
         $situation: ConnLinkDownSituation(node==$nodeid, iface==$iface)
     then
-        retract( $e );
-        ConnLinkDownSituation situation = updateSeverity($situation, $e);
-        update(situation );
-        println( "Found avAesAepConnLinkDown when a situation exist for " + $uei + " for node " + $nodeid  + " Retracted event.");
+        String situationSeverity = $situation.getSeverity();
+        String currentSeverity = getSeverityValue($parms);
+
+        println("situation severity: " + situationSeverity + " Current alarm severity: " + currentSeverity) ;
+        if (Integer.parseInt(situationSeverity) > Integer.parseInt(currentSeverity)){
+            $situation.setSeverity(currentSeverity);
+        }
+        println("Update situation severity to: " + currentSeverity);
+
+        retract($e);
+        update($situation);
+        println( "Found avAesAepConnLinkDown when a situation: " + $situation +" exist for " + $uei + " for node " + $nodeid  + " Retracted event." );
     end
 
 rule "avAesAepConnLinkDownCleared received for node on interace with existing situation"
+    salience 100
       when
           $e : Event( $uei : uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownCLEARED", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
           $situation: ConnLinkDownSituation(node==$nodeid, iface==$iface)
@@ -66,7 +77,7 @@ end
 
 
 rule "avAesAepConnLinkDownCleared received with no situation"
-	salience 90
+	salience 100
 	when
 		$e : Event( $uei : uei=="uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownCLEARED", $nodeid : nodeid, $iface : interface, $parms : parmCollection )
 		not(ConnLinkDownSituation(node==$nodeid, iface==$iface))
@@ -76,59 +87,52 @@ rule "avAesAepConnLinkDownCleared received with no situation"
 end
 
 rule "avAesAepConnLinkDown timer expired"
-   salience 100
+   salience 1000
    when
        $expiration : TimerExpired( $timerId : id )
-       $situation  : ConnLinkDownSituation(timerId == $timerId, $nodeid : node, $iface : iface)
-   then
+              $situation  : ConnLinkDownSituation(timerId == $timerId, $nodeid : node, $iface : iface, $parms : parms)
+          then
        println( "Hold-down timer expired for avAesAepConnLinkDown " + $situation + ".  Retracting expiration and situation; sending escalation event" );
        retract( $expiration );
        retract( $situation );
-       sendAvAesAepConnLinkDown(engine, $nodeid , AVAES_LINH_DOWN_HOLDDOWN_TIME, $situation );
+       sendAvAesAepConnLinkDown(engine, $nodeid, $parms, $situation, AVAES_LINH_DOWN_HOLDDOWN_TIME );
 end
 
-function void sendAvAesAepConnLinkDown( DroolsCorrelationEngine engine, Long nodeId, Integer holdDownTime, ConnLinkDownSituation situation ) {
-    String newUei = getUei(situation);
-    println("UEI: " + newUei);
-    EventBuilder bldr = new EventBuilder(newUei, "Drools")
+function void sendAvAesAepConnLinkDown( DroolsCorrelationEngine engine, Long nodeId, List parms, ConnLinkDownSituation situation, Integer holdDownTime) {
+   Integer situaSeverity = Integer.parseInt(situation.getSeverity());
+   String UEI;
+   println ("Severity: " + situaSeverity);
+
+   if(situaSeverity == 6){
+      UEI = "uei.opennms.org/vendor/Avaya/correlator/avAesAepConnLinkDown_Warning";
+   }else if (situaSeverity == 5){
+      UEI =  "uei.opennms.org/vendor/Avaya/correlator/avAesAepConnLinkDown_Minor";
+   }else{
+      UEI = "uei.opennms.org/vendor/Avaya/correlator/avAesAepConnLinkDown_Major";
+   }
+   println ("UEI: " + UEI);
+   EventBuilder bldr = new EventBuilder(UEI, "Drools")
     .setNodeid(nodeId.intValue())
     .setInterface(InetAddress.getByName(situation.getIface()));
-    for (Object obj : situation.getParms()) {
-       println(obj);
+    for (int i = 0; i < parms.size(); i ++) {
+       Object obj = parms.get(i);
        Parm p = (Parm) obj;
-       bldr.addParam(p.getParmName(), p.getValue().getContent());
+       if(i == 4){
+         bldr.addParam(p.getParmName(), String.valueOf(situaSeverity));
+         println ("Event with seveirty: " + situaSeverity);
+       }else{
+         bldr.addParam(p.getParmName(), p.getValue().getContent());
+       }
     }
-       engine.sendEvent(bldr.getEvent());
+    engine.sendEvent(bldr.getEvent());
 }
+function String getSeverityValue(List parms){
+  Integer i = parms.size();
+  Object obj  = parms.get(4);
+  Parm p = (Parm) obj;
+  String severity = p.getValue().getContent();
 
-function String getUei(ConnLinkDownSituation situation){
- String currentSeverity = situation.getSeverity();
-  if(currentSeverity.equals("6")){
-     return "uei.opennms.org/vendor/Avaya/correlator/avAesAepConnLinkDown_Warning";
-  }else if (currentSeverity.equals("5")){
-     return "uei.opennms.org/vendor/Avaya/correlator/avAesAepConnLinkDown_Minor";
-  }else {
-     return "uei.opennms.org/vendor/Avaya/correlator/avAesAepConnLinkDown_Major";
-  }
-}
-
-function ConnLinkDownSituation updateSeverity( ConnLinkDownSituation situation, Event e ) {
-	String situationSeverity = situation.getSeverity();
-	String currentSeverity = getVbvalue(e);
-
-	println("Update situation severity: " + situationSeverity);
-
-	if (Integer.parseInt(situationSeverity) > Integer.parseInt(currentSeverity)){
-	    situationSeverity = currentSeverity;
-    }
-	println("Update current alarm severity: " + situationSeverity);
-
-	situation.setSeverity( situationSeverity );
-	return situation;
-}
-
-function String getVbvalue(Event e) {
-   return e.getParm("csAlarmSeverity").getValue().getContent();
+  return severity;
 }
 
 function void println(Object msg) {
