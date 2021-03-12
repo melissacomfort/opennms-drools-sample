@@ -1,0 +1,115 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.net.InetAddress;
+import java.util.Date;
+import java.util.List;
+
+import org.opennms.core.utils.InetAddressUtils;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.xml.event.Parm;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils
+import java.util.regex.Pattern
+import java.util.regex.Matcher;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.opennms.netmgt.dao.api.NodeDao;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.TransactionStatus;
+import org.opennms.netmgt.model.OnmsNode;
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+global org.opennms.netmgt.correlation.drools.NodeService nodeService;
+global java.lang.Integer SYNC_SIGNAL_FAULT_HOLDDOWN_TIME;
+global org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+global org.opennms.netmgt.dao.api.NodeDao nodeDao;
+
+declare SyncSignalFaultSituation
+    node : Long
+    subsystem : String
+    location : String
+    parms : List
+    timerId : Integer
+end
+
+rule "cmgSyncSignalFault event received"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/cmgSyncSignalFault", $nodeid : nodeid, $parms : parmCollection )
+        not( SyncSignalFaultSituation( node == $nodeid, subsystem == getParameterValueString($e, 0), location == getParameterValueString($e, 2) ) )
+    then
+        String subsystem =  getParameterValueString($e, 0);
+        String location = getParameterValueString($e, 2);
+        Long nodeID = $nodeid;
+        retract($e);
+        SyncSignalFaultSituation situation = new SyncSignalFaultSituation();
+        situation.setNode(nodeID );
+        situation.setSubsystem(subsystem);
+        situation.setLocation( location );
+        situation.setParms( $parms );
+        situation.setTimerId( engine.setTimer( SYNC_SIGNAL_FAULT_HOLDDOWN_TIME ) );
+        insert(situation );
+        println( "Found cmgSyncSignalFault event for node " + $nodeid + " . Inserted new situation " + situation + " and retracted event." );
+end
+
+rule "cmgSyncSignalClear event received for node with existing cmgSyncSignalFault situation"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/cmgSyncSignalClear", $nodeid : nodeid, $parms : parmCollection)
+        $situation : SyncSignalFaultSituation( node == $nodeid, subsystem == getParameterValueString($e, 0), location == getParameterValueString($e, 2) )
+    then
+        retract( $e );
+        retract( $situation );
+        println( "Found cmgSyncSignalClear event for node with SyncSignalFaultSituation " + $situation + ". Retracted cmgSyncSignalClear and situation. End of line." );
+end
+
+rule "cmgSyncSignalClear event received for node after timer expired"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/cmgSyncSignalClear", $nodeid : nodeid, $parms : parmCollection)
+        not( SyncSignalFaultSituation( node == $nodeid, subsystem == getParameterValueString($e, 0), location == getParameterValueString($e, 2) ))
+    then
+        retract( $e );
+        println( "Found cmgSyncSignalClear event for node without SyncSignalFaultSituation. Retracted event. End of line." );
+end
+
+rule "timer expired on a SyncSignalFaultSituation"
+    salience 1000
+    when
+        $expiration : TimerExpired( $timerId : id )
+        $situation : SyncSignalFaultSituation( timerId == $timerId, $nodeid : node, $subsystem : subsystem, $location : location, $parms : parms)
+    then
+        println( "Hold-down timer expired for SyncSignalFaultSituation " + $situation + ".  Retracting expiration and situation; sending escalation event" );
+        retract( $expiration );
+        retract( $situation );
+        sendVerifiedSyncSignalFaultEvent( engine, $nodeid, $subsystem, $location, $parms, SYNC_SIGNAL_FAULT_HOLDDOWN_TIME );
+end
+
+function void sendVerifiedSyncSignalFaultEvent( DroolsCorrelationEngine engine, Long nodeId, String subsystem, String location, List parms, Integer holdDownTime ) {
+    Integer holdDownTimeSec = holdDownTime / 1000;
+    Long nodeID = nodeId;
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/correlator/vendor/Avaya/traps/cmgSyncSignalFault", "Drools")
+    .setNodeid(nodeId.intValue());
+    for (Object obj : parms) {
+        println(obj);
+        Parm p = (Parm) obj;
+        bldr.addParam(p.getParmName(), p.getValue().getContent());
+    }
+    println("Send Event: " + bldr.getEvent());
+    engine.sendEvent(bldr.getEvent());
+}
+
+function String getParameterValueString(Event event, int index) {
+   String value = null;
+   List<Parm> parms = event.getParmCollection();
+   if (parms != null && parms.size() > index) {
+     value = parms.get(index).getValue().getContent();
+   };
+   return value;
+}
+
+function void println(Object msg) {
+    System.out.println(new Date() + " : " + msg);
+}
+

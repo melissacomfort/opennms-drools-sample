@@ -1,0 +1,127 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.net.InetAddress;
+import java.util.Date;
+import java.util.List;
+
+import org.opennms.core.utils.InetAddressUtils;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.xml.event.Parm;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils
+import java.util.regex.Pattern
+import java.util.regex.Matcher;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.opennms.netmgt.dao.api.NodeDao;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.TransactionStatus;
+import org.opennms.netmgt.model.OnmsNode;
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+global org.opennms.netmgt.correlation.drools.NodeService nodeService;
+global java.lang.Integer SIP_TRUNK_OOS_HOLDDOWN_TIME;
+global org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+global org.opennms.netmgt.dao.api.NodeDao nodeDao;
+
+declare SIPTrunkOOSSituation
+    node : Long
+    deviceName : String
+    appId : String
+    clusterID: String
+    nodeId: String
+    parms : List
+    timerId : Integer
+end
+
+rule "SIPTrunkOOS event received"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/syslog/cucm/SIPTrunkOOS", $node : nodeid, $parms : parmCollection )
+        not( SIPTrunkOOSSituation( node == $node, deviceName == getParameterValueString($e, "DeviceName"), appId == getParameterValueString($e, "AppID"), clusterID == getParameterValueString($e, "ClusterID"), nodeId == getParameterValueString($e, "NodeID")))
+    then
+        String deviceName =   getParameterValueString($e, "DeviceName");
+        String appId = getParameterValueString($e, "AppID");
+        String clusterID = getParameterValueString($e, "ClusterID");
+        String nodeId = getParameterValueString($e, "NodeID");
+        Long node = $node;
+        retract($e);
+        SIPTrunkOOSSituation situation = new SIPTrunkOOSSituation();
+        situation.setNode(node );
+        situation.setDeviceName(deviceName);
+        situation.setAppId(appId);
+        situation.setClusterID(clusterID);
+        situation.setNodeId(nodeId);
+        situation.setParms($parms);
+        situation.setTimerId(engine.setTimer( SIP_TRUNK_OOS_HOLDDOWN_TIME));
+        insert(situation );
+        println( "Found SIPTrunkOOS event for node " + $node + " . Inserted new situation " + situation + " and retracted event." );
+end
+
+rule "SIPTrunkISV Clear event received for node with existing SIPTrunkOOS situation"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/syslog/cucm/SIPTrunkISV", $nodeid : nodeid, $parms : parmCollection)
+        $situation : SIPTrunkOOSSituation( node == $nodeid, deviceName == getParameterValueString($e, "DeviceName"), appId == getParameterValueString($e, "AppID"), clusterID == getParameterValueString($e, "ClusterID"), nodeId == getParameterValueString($e, "NodeID"))
+    then
+        retract( $e );
+        retract( $situation );
+        println( "Found SIPTrunkISV clear event for node with SIPTrunkOOSSituation " + $situation + ". Retracted SIPTrunkISV and situation. End of line." );
+end
+
+rule "SIPTrunkISV event received for node after timer expired"
+    salience 100
+    when
+        $e : Event( $uei : uei == "uei.opennms.org/syslog/cucm/SIPTrunkISV", $nodeid : nodeid, $parms : parmCollection)
+        not( SIPTrunkOOSSituation( node == $nodeid, deviceName == getParameterValueString($e, "DeviceName"), appId == getParameterValueString($e, "AppID"), clusterID == getParameterValueString($e, "ClusterID"), nodeId == getParameterValueString($e, "NodeID")))
+    then
+        retract( $e );
+        println( "Found SIPTrunkISV Clear event for node without SIPTrunkOOSSituation. Retracted event. End of line." );
+end
+
+rule "timer expired on a SIPTrunkOOSSituation"
+    salience 1000
+    when
+        $expiration : TimerExpired($timerId : id)
+        $situation : SIPTrunkOOSSituation( timerId == $timerId, $node : node, $deviceName : deviceName, $appId : appId, $clusterID : clusterID, $nodeId :nodeId,  $parms : parms)
+    then
+        println( "Hold-down timer expired for SIPTrunkOOSSituation " + $situation + ".  Retracting expiration and situation; sending escalation event" );
+        retract( $expiration );
+        retract( $situation );
+        sendSIPTrunkOOSEvent( engine, $node, $deviceName, $appId, $clusterID, $nodeId, $parms, SIP_TRUNK_OOS_HOLDDOWN_TIME );
+end
+
+function void sendSIPTrunkOOSEvent( DroolsCorrelationEngine engine, Long node, String deviceName, String appId, String clusterID, String nodeId, List parms, Integer holdDownTime ) {
+    Integer holdDownTimeSec = holdDownTime / 1000;
+    Long nodeID = node;
+    EventBuilder bldr = new EventBuilder("uei.opennms.org/correlator/syslog/cucm/SIPTrunkOOS", "Drools")
+    .setNodeid(node.intValue());
+    for (Object obj : parms) {
+        println(obj);
+        Parm p = (Parm) obj;
+        bldr.addParam(p.getParmName(), p.getValue().getContent());
+    }
+    println("Send Event: " + bldr.getEvent());
+    engine.sendEvent(bldr.getEvent());
+}
+
+function String getParameterValueString(Event event, String parmName) {
+     String value = null;
+       List<Parm> parms = event.getParmCollection();
+       if (parms != null) {
+          for (Object obj : parms) {
+            println(obj);
+            Parm p = (Parm) obj;
+            if(p.getParmName().equalsIgnoreCase(parmName)){
+               value = p.getValue().getContent();
+            }
+          }
+       };
+     return value;
+}
+
+function void println(Object msg) {
+    System.out.println(new Date() + " : " + msg);
+}
+

@@ -99,4 +99,18 @@
     <event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDownCLEARED</event>
     <global name="AVAES_LINH_DOWN_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
   </rule-set>
+
+  <rule-set name="syncSignalFaultHolddownRules">
+    <rule-file>file:src/test/opennms-home/etc/SyncSignalFaultRules.drl</rule-file>
+    <event>uei.opennms.org/vendor/Avaya/traps/cmgSyncSignalFault</event>
+    <event>uei.opennms.org/vendor/Avaya/traps/cmgSyncSignalClear</event>
+    <global name="SYNC_SIGNAL_FAULT_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+  </rule-set>
+
+  <rule-set name="SIPTrunkOOSHolddownRules">
+    <rule-file>file:src/test/opennms-home/etc/SIPTrunkOOSRules.drl</rule-file>
+    <event>uei.opennms.org/syslog/cucm/SIPTrunkOOS</event>
+    <event>uei.opennms.org/syslog/cucm/SIPTrunkISV</event>
+    <global name="SIP_TRUNK_OOS_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+  </rule-set>
 </engine-configuration>
