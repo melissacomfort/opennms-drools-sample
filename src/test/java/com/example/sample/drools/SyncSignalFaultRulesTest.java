@@ -7,7 +7,7 @@ import org.opennms.netmgt.xml.event.Event;
 
 public class SyncSignalFaultRulesTest extends CorrelationRulesTestCase {
 
-    private static Integer SYNC_SIGNAL_FAULT_HOLDDOWN_TIME = 20000; //660000;
+    private static Integer SIP_TRUNK_OOS_HOLDDOWN_TIME = 20000; //660000;
     private static String SYNC_SIGNAL_FAULT_PAST_HOLDDOWN_UEI = "uei.opennms.org/correlator/vendor/Avaya/traps/cmgSyncSignalFault";
 
     @Test
@@ -42,8 +42,8 @@ public class SyncSignalFaultRulesTest extends CorrelationRulesTestCase {
         engine.correlate(event);
 
         // Wait for half the hold-down time length
-        System.err.println("SLEEPING FOR " + (SYNC_SIGNAL_FAULT_HOLDDOWN_TIME / 2) + " ms");
-        Thread.sleep(SYNC_SIGNAL_FAULT_HOLDDOWN_TIME / 2);
+        System.err.println("SLEEPING FOR " + (SIP_TRUNK_OOS_HOLDDOWN_TIME / 2) + " ms");
+        Thread.sleep(SIP_TRUNK_OOS_HOLDDOWN_TIME / 2);
 
         // Clear alarm is send out with the existing situation for node 2 at half time
         event = createCmgSyncSignalClearEvent(2);
@@ -51,8 +51,8 @@ public class SyncSignalFaultRulesTest extends CorrelationRulesTestCase {
         engine.correlate(event);
 
         // Now wait for the hold-down timer to run out on node one
-        System.err.println("SLEEPING FOR " + (SYNC_SIGNAL_FAULT_HOLDDOWN_TIME / 2 + 1000) + " ms");
-        Thread.sleep(SYNC_SIGNAL_FAULT_HOLDDOWN_TIME / 2 + 1000);
+        System.err.println("SLEEPING FOR " + (SIP_TRUNK_OOS_HOLDDOWN_TIME / 2 + 1000) + " ms");
+        Thread.sleep(SIP_TRUNK_OOS_HOLDDOWN_TIME / 2 + 1000);
 
         //Clear alarm for node 1 but it too late, the correlator event already send out
         event = createCmgSyncSignalClearEvent(1);
