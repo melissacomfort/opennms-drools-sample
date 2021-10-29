@@ -1,0 +1,112 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.util.Date;
+
+import org.opennms.core.utils.InetAddressUtils;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils;
+import java.util.List
+import org.opennms.netmgt.xml.event.Parm;
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+global org.opennms.netmgt.correlation.drools.NodeService nodeService;
+global java.lang.Integer AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT;
+global java.lang.Integer AV_UNAUTHORIZED_LOGIN_TIME_WINDOW;
+
+
+/*
+ *  If you receive = 5 times lntUnAuthAccessEvent Alarms
+ * Then generate one single Warning correlations alarm. Discard any alarm (> 5) after the correlations alarm already sent out.
+ */
+
+declare AvUnauthorizedLoginSituation
+    node : Long
+	iface : String
+	parms: List
+	timerId : Integer
+    occurrences : Integer
+end
+
+rule "initial avUnAuthAccessEvent event received for node"
+	salience 100
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avUnAuthAccessEvent", $nodeid : nodeid, $ipaddr : interface, $parms : parmCollection )
+		not( AvUnauthorizedLoginSituation( node == $nodeid ) )
+	then
+		retract( $e );
+		AvUnauthorizedLoginSituation situation = new AvUnauthorizedLoginSituation();
+		situation.setNode( $nodeid );
+		situation.setIface($ipaddr );
+		situation.setParms($parms );
+		situation.setTimerId( engine.setTimer( AV_UNAUTHORIZED_LOGIN_TIME_WINDOW ) );
+		situation.setOccurrences( 1 );
+		insert( situation );
+		println( "Found avUnAuthAccessEvent event for node " + $nodeid +". Inserted new situation " + situation + " and retracted event." );
+		println( "Note: AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT is set to " + AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT );
+end
+
+rule "subsequent but NON-triggering avUnAuthAccessEvent event received for node"
+	salience 100
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avUnAuthAccessEvent", $nodeid : nodeid, $ipaddr : interface,  $parms: parmCollection )
+		$situation : AvUnauthorizedLoginSituation( occurrences < ( AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT ), node == $nodeid,  iface == $ipaddr, parms == $parms )
+	then
+		println( "Found avUnAuthAccessEvent event for active situation " + $situation + ". Retracting event. Incrementing occurrences on situation." );
+		retract( $e );
+		incrementAvUnauthorizedLoginOccurrences( $situation );
+		update( $situation );
+end
+
+rule "subsequent TRIGGERING avUnAuthAccessEvent event received for node"
+	salience 1000
+	when
+		$e : Event( $uei : uei == "uei.opennms.org/vendor/Avaya/traps/avUnAuthAccessEvent", $nodeid : nodeid, $ipaddr : interface,  $parms: parmCollection )
+		$situation : AvUnauthorizedLoginSituation( $occ : occurrences == ( AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT ), node == $nodeid,  iface == $ipaddr, parms == $parms)
+	then
+		println( "Final avUnAuthAccessEvent event on situation " + $situation + " triggered correlator event, retracting event and situation; sending correlator event" );
+		retract( $e );
+		retract( $situation );
+		sendCorrelatorAvUnAuthAccessEvent( engine, $nodeid, $ipaddr, $parms, AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT, AV_UNAUTHORIZED_LOGIN_TIME_WINDOW );
+end
+
+rule "retract expired avUnAuthAccessEvent situations"
+	when
+		$situation : AvUnauthorizedLoginSituation( $nodeid : node, $timerId : timerId, $ipaddr: iface , $parms : parms, $occ : occurrences < ( AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT ) )
+		$expiration : TimerExpired( id == $timerId )
+	then
+		println( "Found expired lntUnAuthAccessEvent situation " + $situation + "; retracting situation and expiration." );
+		retract( $situation );
+		retract( $expiration );
+end
+
+
+function void incrementAvUnauthorizedLoginOccurrences( AvUnauthorizedLoginSituation situation ) {
+	Integer occ = situation.getOccurrences();
+	occ++;
+	situation.setOccurrences( occ );
+}
+
+function void sendCorrelatorAvUnAuthAccessEvent( DroolsCorrelationEngine engine, Long nodeId, String ipAddr, List parms, Integer count, Integer timeWindow ) {
+		Integer timeWindowMinutes = timeWindow / 60000;
+        EventBuilder bldr = new EventBuilder("uei.opennms.org/vendor/Avaya/correlator/avUnAuthAccessEvent", "Drools")
+                .setNodeid(nodeId.intValue())
+                .setInterface(InetAddressUtils.addr(ipAddr));
+                 for (Object obj : parms) {
+                       println(obj);
+                       Parm p = (Parm) obj;
+                       bldr.addParam(p.getParmName(), p.getValue().getContent());
+                 }
+		bldr.addParam("correlationEngineName", "Drools")
+		.addParam("correlationRuleSetName", engine.getName())
+		.addParam("correlationComments", "Observed at least " + count + " occurrences within " + timeWindowMinutes + " minutes")
+		.addParam("occurrences", count.toString())
+		.addParam("timeWindow", timeWindowMinutes.toString());
+        engine.sendEvent(bldr.getEvent());
+}
+
+function void println(Object msg) {
+	System.out.println(new Date() + " : " + msg);
+}

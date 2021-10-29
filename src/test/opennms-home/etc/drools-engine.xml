@@ -113,4 +113,17 @@
     <event>uei.opennms.org/syslog/cucm/SIPTrunkISV</event>
     <global name="SIP_TRUNK_OOS_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
   </rule-set>
+
+  <rule-set name="lntUnAuthAccessEvent">
+    <rule-file>file:src/test/opennms-home/etc/LnUnauthorizedLoginRules.drl</rule-file>
+    <event>uei.opennms.org/vendor/Avaya/traps/lntUnAuthAccessEvent</event>
+    <global name="LN_UNAUTHORIZED_LOGIN_TIME_WINDOW" type="java.lang.Integer" value="900000"/>
+    <global name="LN_UNAUTHORIZED_LOGIN_TRIGGER_COUNT" type="java.lang.Integer" value="5"/>
+  </rule-set>
+  <rule-set name="avUnAuthAccessEvent">
+    <rule-file>file:src/test/opennms-home/etc/AvUnauthorizedLoginRules.drl</rule-file>
+    <event>uei.opennms.org/vendor/Avaya/traps/avUnAuthAccessEvent</event>
+    <global name="AV_UNAUTHORIZED_LOGIN_TIME_WINDOW" type="java.lang.Integer" value="900000"/>
+    <global name="AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT" type="java.lang.Integer" value="5"/>
+  </rule-set>
 </engine-configuration>
