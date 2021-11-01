@@ -49,11 +49,11 @@ public class UnauthorizedLoginRulesTest extends CorrelationRulesTestCase {
 
     private static String LN_UNAUTH_LOGIN_UEI = "uei.opennms.org/vendor/Avaya/traps/lntUnAuthAccessEvent";
 
-    private static String LN_UNAUTH_LOGIN_CORRELATOR_UEI = "uei.opennms.org/vendor/Avaya/correlator/lntUnAuthAccessEvent";
+    private static String LN_UNAUTH_LOGIN_CORRELATOR_UEI = "uei.opennms.org/correlator/vendor/Avaya/traps/lntUnAuthAccessEvent";
 
 private static String AV_UNAUTH_LOGIN_UEI = "uei.opennms.org/vendor/Avaya/traps/avUnAuthAccessEvent";
 
-private static String AV_UNAUTH_LOGIN_CORRELATOR_UEI = "uei.opennms.org/vendor/Avaya/correlator/avUnAuthAccessEvent";
+private static String AV_UNAUTH_LOGIN_CORRELATOR_UEI = "uei.opennms.org/correlator/vendor/Avaya/traps/avUnAuthAccessEvent";
 
 
     /**

@@ -93,7 +93,7 @@ function void incrementLnUnauthorizedLoginOccurrences( LnUnauthorizedLoginSituat
 
 function void sendCorrelatorLnUnAuthAccessEvent( DroolsCorrelationEngine engine, Long nodeId, String ipAddr, List parms, Integer count, Integer timeWindow ) {
 		Integer timeWindowMinutes = timeWindow / 60000;
-        EventBuilder bldr = new EventBuilder("uei.opennms.org/vendor/Avaya/correlator/lntUnAuthAccessEvent", "Drools")
+        EventBuilder bldr = new EventBuilder("uei.opennms.org/correlator/vendor/Avaya/traps/lntUnAuthAccessEvent", "Drools")
                 .setNodeid(nodeId.intValue())
                 .setInterface(InetAddressUtils.addr(ipAddr));
                 for (Object obj : parms) {
