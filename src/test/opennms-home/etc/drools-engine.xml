@@ -118,15 +118,6 @@
     <global name="AV_UNAUTHORIZED_LOGIN_TIME_WINDOW" type="java.lang.Integer" value="900000"/>
     <global name="AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT" type="java.lang.Integer" value="5"/>
   </rule-set>
-  <rule-set name="nodeLostServices">
-    <rule-file>file:src/test/opennms-home/etc/NodeLostServicesRules.drl</rule-file>
-    <event>uei.opennms.org/nodes/nodeLostService</event>
-    <event>uei.opennms.org/nodes/nodeRegainedService</event>
-    <global name="NLS_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
-    <global name="NLS_HOLDDOWN_TIME_VIDEO" type="java.lang.Integer" value="20000"/>
-    <global name="TWELVE_MINUTES_HOLDDOWN_TIME" type="java.lang.Integer" value="30000"/>
-    <global name="TWENTY_MINUTES_HOLDDOWN_TIME" type="java.lang.Integer" value="50000"/>
-  </rule-set>
   <rule-set name="dustCustomerHoldDownTimersRules">
     <rule-file>file:src/test/opennms-home/etc//AvayaAuraDustCustomerHoldDownTimerRules.drl</rule-file>
     <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning</event>
