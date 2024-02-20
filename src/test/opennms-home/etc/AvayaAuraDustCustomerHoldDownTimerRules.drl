@@ -1,0 +1,185 @@
+package org.opennms.netmgt.correlation.drools;
+
+import java.util.Date;
+import java.util.List;
+import org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine;
+import org.opennms.netmgt.xml.event.Event;
+import org.opennms.netmgt.xml.event.Parm;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.netmgt.events.api.EventConstants;
+import org.opennms.netmgt.model.events.EventUtils
+import java.net.InetAddress
+import org.opennms.netmgt.xml.event.Value
+import java.util.Arrays
+import java.util.ArrayList
+import java.util.Collections
+import java.util.HashMap;
+
+
+global org.opennms.netmgt.correlation.drools.DroolsCorrelationEngine engine;
+global org.opennms.netmgt.correlation.drools.NodeService nodeService;
+global java.lang.Integer DUST_TIMER_MILLIS;
+
+declare DustSituation
+  node : Long
+  iface : String
+  timerId: Integer
+  uei : String
+end
+
+rule "Dust Customer Alarms received on inteface with no situation"
+    salience 100
+    when
+          $e : Event( $uei :uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning" ||
+                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning" ||
+                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrWarning" ||
+                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgWarning" ||
+                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssMinor" ||
+                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeMinor" ||
+                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor" ,
+                            $nodeid : nodeid, $iface : interface)
+                            not( DustSituation( node==$nodeid, iface==$iface, uei==$uei))
+                            Boolean(booleanValue == true) from isInterfaceBelongToDust($iface)
+      then
+          retract( $e );
+          DustSituation dustSituation = new DustSituation();
+          dustSituation.setNode( $nodeid );
+          dustSituation.setIface( $iface );
+          dustSituation.setUei( $uei );
+          dustSituation.setTimerId( engine.setTimer( DUST_TIMER_MILLIS ) );
+          insert( dustSituation );
+          println( "Found matching Dust Interface alarms need hold down timer increase uei = " + $uei + " for node = " + $nodeid  +  " Interface = " + $iface + ". Inserted new situation " + dustSituation + " and retracted event.");
+end
+
+
+rule "Dust customer alarm received when a situation exist"
+    salience 100
+    when
+        $e : Event( $uei :uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning" ||
+                          uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning" ||
+                          uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrWarning" ||
+                          uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgWarning" ||
+                          uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssMinor" ||
+                          uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeMinor" ||
+                          uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor" ,
+                          $nodeid : nodeid, $iface : interface)
+                          $situation: DustSituation(node==$nodeid, iface==$iface, uei==$uei)
+
+    then
+        retract($e);
+        println( "Found Dust customer alarm when a situation: " + $situation +" exist for " + $uei + " for node " + $nodeid  + " Retracted event." );
+end
+
+rule "Alarm Cleared received with no situation"
+	salience 100
+	when
+		$e : Event( $uei :uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyResolved" ||
+                                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrResolved" ||
+                                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgResolved" ||
+                                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssResolved" ||
+                                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineResolved" ||
+                                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeResolved" ||
+                                            uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdResolved" ,
+                                            $nodeid : nodeid, $iface : interface)
+                                            Boolean(booleanValue == true) from isInterfaceBelongToDust($iface)
+                                            not( DustSituation( node==$nodeid, iface==$iface, uei == getSituationUEI($uei)))
+	then
+		retract( $e );
+		println( "Found alarm cleared on interface " + $iface + "for Dust customer with no Situation. Retracted event." + "UEI: " + getSituationUEI($uei) );
+end
+
+rule "Alarm Cleared received for node on interace with existing situation"
+    salience 100
+      when
+         $e : Event( $uei :uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyResolved" ||
+                                                     uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrResolved" ||
+                                                     uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgResolved" ||
+                                                     uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssResolved" ||
+                                                     uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineResolved" ||
+                                                     uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeResolved" ||
+                                                     uei=="uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdResolved" ,
+                                                     $nodeid : nodeid, $iface : interface)
+                                                     $situation: DustSituation(node==$nodeid, iface==$iface, uei==getSituationUEI($uei))
+      then
+          retract( $e );
+          retract( $situation );
+          println( "Found Alarm Cleared received on interface: " + $iface + "UEI = " + getSituationUEI($uei) + " of Dust Customer situation  " + $situation + " Retracted event.");
+end
+
+rule "Dust Alarm timer expired"
+   salience 1000
+   when
+       $expiration : TimerExpired( $timerId : id )
+       $situation  : DustSituation(timerId == $timerId, $nodeid : node, $iface : iface, $uei : uei)
+   then
+       println( "Hold-down timer 2 minutes expired for $uei " + $situation + ".  Retracting expiration and situation; sending escalation event" );
+       retract( $expiration );
+       retract( $situation );
+       sendCorrelationAlarmForDustCustomer(engine, $nodeid, $uei, $iface);
+end
+
+function void sendCorrelationAlarmForDustCustomer( DroolsCorrelationEngine engine, Long nodeId, String $uei, String $iface) {
+   String UEI = getUEI($uei);
+   println ("Correlation UEI: " + UEI);
+
+   EventBuilder bldr = new EventBuilder(UEI, "Drools")
+    .setNodeid(nodeId.intValue())
+    .setInterface(InetAddress.getByName($iface));
+    engine.sendEvent(bldr.getEvent());
+}
+
+function boolean isInterfaceBelongToDust(String dIface){
+    boolean isInterfaceMatched = false;
+    ArrayList<String> dusIfaceList = new ArrayList<String>(Arrays.asList("172.20.209.13", "172.20.209.12", "172.20.213.11"));
+    if (dusIfaceList.contains(dIface)){
+        isInterfaceMatched = true;
+    }
+    return isInterfaceMatched;
+}
+
+function String getSituationUEI(String clearUei){
+    String ueiValue = "";
+    HashMap<String, String> rcMap = raisedClearedMap();
+    if (rcMap.containsKey(clearUei)){
+       ueiValue = rcMap.get(clearUei);
+    }
+    return ueiValue;
+}
+
+function String getUEI(String uei){
+    String ueiValue = "";
+    HashMap<String, String> rMap = eventMap();
+    if (rMap.containsKey(uei)){
+       ueiValue = rMap.get(uei);
+    }
+    return ueiValue;
+}
+
+function HashMap eventMap(){
+      HashMap<String, String> hMap = new HashMap<String, String>();
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmDigLineWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmMedGtwyWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrWarning", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmPriCdrWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgWarning", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmServCmgWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssMinor", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmServEssMinor");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeMinor", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmServPeMinor");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor", "uei.opennms.org/correlator/vendor/Avaya/traps/avCmAlmServWdMinor");
+      return hMap;
+}
+
+function HashMap raisedClearedMap(){
+      HashMap<String, String> hMap = new HashMap<String, String>();
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgWarning");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssMinor");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeMinor");
+      hMap.put("uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdResolved", "uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor");
+      return hMap;
+}
+
+
+function void println(Object msg) {
+    System.out.println(new Date() + " : " + msg);
+}

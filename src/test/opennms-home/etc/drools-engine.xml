@@ -5,6 +5,7 @@
 	xsi:schemaLocation="http://xmlns.opennms.org/xsd/drools-engine /opt/opennms/share/xsds/drools-engine.xsd ">
 
 
+
   <rule-set name="connectionRateRules">
     <rule-file>file:src/test/opennms-home/etc/ConnectionRateRules.drl</rule-file>
     <event>uei.opennms.org/vendor/Juniper/MFC/traps/connectionRateHigh</event>
@@ -57,28 +58,19 @@
     <rule-file>file:src/test/opennms-home/etc/DataCollectionFailedRules.drl</rule-file>
     <event>uei.opennms.org/nodes/dataCollectionFailed</event>
     <event>uei.opennms.org/nodes/dataCollectionSucceeded</event>
-    <!-- <global name="nodeDao" ref="nodeDao" type="org.opennms.netmgt.dao.api.NodeDao"/> Need this in real opennms environment-->
-    <!-- <global name="transactionTemplate" ref="transactionTemplate" type="org.springframework.transaction.support.TransactionTemplate"/>Need this in real opennms environment-->
-   <global name="DATA_COLLECTION_FAILED_HOLDDOWN_TIME" type="java.lang.Integer" value="30000"/><!-- 660000 every 15 minutes-->
+   <global name="DATA_COLLECTION_FAILED_HOLDDOWN_TIME" type="java.lang.Integer" value="30000"/>
   </rule-set>
   <rule-set name="cucsFaultActiveNotifPastHoldDownTimeRules">
     <rule-file>file:src/test/opennms-home/etc/BatteryDegradedHoldDownTimerRules.drl</rule-file>
     <event>uei.opennms.org/vendor/Cisco/traps/cucsFaultActiveNotifMINOR</event>
     <event>uei.opennms.org/vendor/Cisco/traps/cucsFaultClearNotifCLEAR</event>
-    <global name="RAID_BATTERY_DEGRADED_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/> <!-- 900000 every 15 minutes-->
+    <global name="RAID_BATTERY_DEGRADED_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
   </rule-set>
 	<rule-set name="specificAlarmIgnoreRules">
 		<rule-file>file:src/test/opennms-home/etc/SpecificUeiAlarmIgnoreRules.drl</rule-file>
 		<event>uei.opennms.org/vendor/Avaya/traps/alarmRestart</event>
 		<event>uei.opennms.org/vendor/Avaya/traps/avAesAepConnLinkDown</event>
 	</rule-set>
-  <!-- ON-439-->
-  <rule-set name="nodeLostServiceHolddownRules">
-    <rule-file>file:src/test/opennms-home/etc/NodeLostServiceRules.drl</rule-file>
-    <event>uei.opennms.org/nodes/nodeLostService</event>
-    <event>uei.opennms.org/nodes/nodeRegainedService</event>
-    <global name="NLS_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
-  </rule-set>
   <rule-set name="nodeDownHolddownRules">
     <rule-file>file:src/test/opennms-home/etc/NodeDownRules.drl</rule-file>
     <event>uei.opennms.org/nodes/nodeDown</event>
@@ -125,5 +117,32 @@
     <event>uei.opennms.org/vendor/Avaya/traps/avUnAuthAccessEvent</event>
     <global name="AV_UNAUTHORIZED_LOGIN_TIME_WINDOW" type="java.lang.Integer" value="900000"/>
     <global name="AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT" type="java.lang.Integer" value="5"/>
+  </rule-set>
+  <rule-set name="nodeLostServices">
+    <rule-file>file:src/test/opennms-home/etc/NodeLostServicesRules.drl</rule-file>
+    <event>uei.opennms.org/nodes/nodeLostService</event>
+    <event>uei.opennms.org/nodes/nodeRegainedService</event>
+    <global name="NLS_HOLDDOWN_TIME" type="java.lang.Integer" value="20000"/>
+    <global name="NLS_HOLDDOWN_TIME_VIDEO" type="java.lang.Integer" value="20000"/>
+    <global name="TWELVE_MINUTES_HOLDDOWN_TIME" type="java.lang.Integer" value="30000"/>
+    <global name="TWENTY_MINUTES_HOLDDOWN_TIME" type="java.lang.Integer" value="50000"/>
+  </rule-set>
+  <rule-set name="dustCustomerHoldDownTimersRules">
+    <rule-file>file:src/test/opennms-home/etc//AvayaAuraDustCustomerHoldDownTimerRules.drl</rule-file>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssMinor</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeMinor</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdResolved</event>
+    <global name="DUST_TIMER_MILLIS" type="java.lang.Integer" value="20000"/>
   </rule-set>
 </engine-configuration>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<engine-configuration 
+    xmlns="http://xmlns.opennms.org/xsd/drools-engine" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xsi:schemaLocation="http://xmlns.opennms.org/xsd/drools-engine /opt/opennms/share/xsds/drools-engine.xsd ">
+  <rule-set name="dustCustomerHoldDownTimersRules">
+    <rule-file>file:etc/drools-engine.d/DustCustomerHoldDownTimers/AvayaAuraDustCustomerHoldDownTimerRules.drl</rule-file>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmPriCdrResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgWarning</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServCmgResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssMinor</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServEssResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeMinor</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServPeResolved</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor</event>
+    <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdResolved</event>
+    <global name="DUST_TIMER_MILLIS" type="java.lang.Integer" value="<%=@holdDownTime%>"/>
+  </rule-set>
+</engine-configuration>

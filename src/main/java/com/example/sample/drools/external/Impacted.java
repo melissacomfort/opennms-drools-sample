@@ -29,6 +29,8 @@ package com.example.sample.drools.external;
 
 import org.opennms.netmgt.xml.event.Event;
 
+import java.awt.*;
+
 /**
  * The Class Impacted.
  * 

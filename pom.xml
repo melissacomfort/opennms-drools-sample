@@ -36,7 +36,7 @@
   <artifactId>opennms-drools-sample</artifactId>
   <version>1.0-SNAPSHOT</version>
   <name>Sample Rules for OpenNMS Drools Correlation Engine</name>
-  <url>http://maven.apache.org</url>
+  <url>https://maven.apache.org</url>
   <build>
     <plugins>
       <plugin>
@@ -135,6 +135,11 @@
       <version>4.5.1</version>
       <scope>test</scope>
     </dependency>
+      <dependency>
+          <groupId>org.scala-lang</groupId>
+          <artifactId>scala-library</artifactId>
+          <version>2.10.0</version>
+      </dependency>
 
   </dependencies>
   <repositories>
@@ -143,7 +148,7 @@
       <releases><enabled>true</enabled></releases>
       <id>opennms-repo</id>
       <name>OpenNMS Repository</name>
-      <url>http://maven.opennms.org/content/groups/opennms.org-release</url>
+      <url>https://maven.opennms.org/content/groups/opennms.org-release/</url>
     </repository>
   </repositories>
 </project>
