@@ -6,7 +6,7 @@
 
 
 
-  <rule-set name="connectionRateRules">
+ <rule-set name="connectionRateRules">
     <rule-file>file:src/test/opennms-home/etc/ConnectionRateRules.drl</rule-file>
     <event>uei.opennms.org/vendor/Juniper/MFC/traps/connectionRateHigh</event>
     <global name="CONN_RATE_HIGH_TRIGGER_COUNT" type="java.lang.Integer" value="10"/>
@@ -119,7 +119,7 @@
     <global name="AV_UNAUTHORIZED_LOGIN_TRIGGER_COUNT" type="java.lang.Integer" value="5"/>
   </rule-set>
   <rule-set name="dustCustomerHoldDownTimersRules">
-    <rule-file>file:src/test/opennms-home/etc//AvayaAuraDustCustomerHoldDownTimerRules.drl</rule-file>
+    <rule-file>file:src/test/opennms-home/etc/AvayaAuraDustCustomerHoldDownTimerRules.drl</rule-file>
     <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineWarning</event>
     <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmDigLineResolved</event>
     <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmMedGtwyWarning</event>
@@ -135,5 +135,11 @@
     <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdMinor</event>
     <event>uei.opennms.org/translator/vendor/Avaya/traps/avCmAlmServWdResolved</event>
     <global name="DUST_TIMER_MILLIS" type="java.lang.Integer" value="20000"/>
+  </rule-set>
+  <rule-set name="paloAltoCustomerHoldDownTimersRules">
+    <rule-file>file:src/test/opennms-home/etc/PaloAltoCustomerHoldDownTimerRules.drl</rule-file>
+    <event>uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN</event>
+    <event>uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN_Cleared</event>
+    <global name="VPN_LINK_DOWN_TIMER_MILLIS" type="java.lang.Integer" value="20000"/>
   </rule-set>
 </engine-configuration>
