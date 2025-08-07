@@ -1,12 +1,8 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<engine-configuration 
-    xmlns="http://xmlns.opennms.org/xsd/drools-engine" 
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-    xsi:schemaLocation="http://xmlns.opennms.org/xsd/drools-engine /opt/opennms/share/xsds/drools-engine.xsd ">
-  <rule-set name="paloAltoCustomerHoldDownTimersRules">
-    <rule-file>file:etc/drools-engine.d/PaloAltoCustomerHoldDownTimers/PaloAltoCustomerHoldDownTimerRules.drl</rule-file>
+<engine-configuration xmlns="http://xmlns.opennms.org/xsd/drools-engine" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.opennms.org/xsd/drools-engine /opt/opennms/share/xsds/drools-engine.xsd ">
+  <rule-set name="avAesAepConnLinkDown">
+    <rule-file>file:etc/drools-engine.d/paloAltoVpnLinkDownHoldDown/PaloAltoCustomerHoldDownTimerRules.drl</rule-file>
     <event>uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN</event>
     <event>uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN_Cleared</event>
-    <global name="VPN_LINK_DOWN_TIMER_MILLIS" type="java.lang.Integer" value="<%=@holdDownTime%>"/>
+    <global name="VPN_LINK_DOWN_TIMER_MILLIS" type="java.lang.Integer" value="180000"/>
   </rule-set>
 </engine-configuration>
