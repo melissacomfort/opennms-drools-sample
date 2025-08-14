@@ -32,7 +32,7 @@ end
 rule "PaloAlto customer VpnLinkDown Alarms received on inteface with no situation"
     salience 100
     when
-          $e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", $nodeid : nodeid, $iface : interface)
+          $e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", $nodeid : nodeid, $iface : interface, $parms : parmCollection)
           not( VpnLinkDownSituation( node==$nodeid, iface==$iface, uei==$uei, ALID==getParameterValueString($e, "AL_ID"), ELEMENTID==getParameterValueString($e, "ELEMENT_ID")))
       then
           retract( $e );
@@ -42,6 +42,7 @@ rule "PaloAlto customer VpnLinkDown Alarms received on inteface with no situatio
           vpnLinkDownSituation.setUei( $uei );
           vpnLinkDownSituation.setALID(getParameterValueString($e, "AL_ID"));
           vpnLinkDownSituation.setELEMENTID(getParameterValueString($e, "ELEMENT_ID"));
+          vpnLinkDownSituation.setParms( $parms );
           vpnLinkDownSituation.setTimerId( engine.setTimer( VPN_LINK_DOWN_TIMER_MILLIS ) );
           insert( vpnLinkDownSituation );
           println( "Found matching PalaAlto vpnLinkDown alarms need hold down timer 3 mins with  uei = " + $uei + " for node = " + $nodeid  +  " Interface = " + $iface + ". Inserted new situation " + vpnLinkDownSituation + " and retracted event.");
@@ -51,7 +52,7 @@ end
 rule "PaloAlto customer VpnLinkDown alarm received when a situation exist"
     salience 100
     when
-        $e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", $nodeid : nodeid, $iface : interface)
+        $e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", $nodeid : nodeid, $iface : interface, $parms : parmCollection)
         $situation: VpnLinkDownSituation(node==$nodeid, iface==$iface, uei==$uei, ALID==getParameterValueString($e, "AL_ID"), ELEMENTID==getParameterValueString($e, "ELEMENT_ID"))
 
     then
@@ -62,7 +63,7 @@ end
 rule "PaloAlto customer Alarm Cleared for VpnLinkDown received with no situation"
 	salience 100
 	when
-		$e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN_Cleared", $nodeid : nodeid, $iface : interface)
+		$e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN_Cleared", $nodeid : nodeid, $iface : interface, $parms : parmCollection)
         not( VpnLinkDownSituation( node==$nodeid, iface==$iface, uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", ALID==getParameterValueString($e, "AL_ID"), ELEMENTID==getParameterValueString($e, "ELEMENT_ID")))
 	then
 		retract( $e );
@@ -72,7 +73,7 @@ end
 rule "Alarm Cleared received for node on interace with existing situation"
     salience 100
       when
-         $e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN_Cleared", $nodeid : nodeid, $iface : interface)
+         $e : Event( $uei :uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN_Cleared", $nodeid : nodeid, $iface : interface, $parms : parmCollection)
          $situation: VpnLinkDownSituation(node==$nodeid, iface==$iface, uei=="uei.opennms.org/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", ALID==getParameterValueString($e, "AL_ID"), ELEMENTID==getParameterValueString($e, "ELEMENT_ID"))
       then
           retract( $e );
@@ -84,20 +85,23 @@ rule "PaloAlto customer VpnLinkDown Alarm timer expired"
    salience 1000
    when
        $expiration : TimerExpired( $timerId : id )
-       $situation: VpnLinkDownSituation(timerId == $timerId, $nodeid : node, $iface : iface, $uei : uei, $ALID : ALID, $ELEMENTID : ELEMENTID)
+       $situation: VpnLinkDownSituation(timerId == $timerId, $nodeid : node, $iface : iface, $uei : uei, $ALID : ALID, $ELEMENTID : ELEMENTID, $parms : parms)
    then
        println( "Hold-down timer 3 minutes expired for $uei " + $situation + ".  Retracting expiration and situation; sending escalation event" );
        retract( $expiration );
        retract( $situation );
-       sendCorrelationVpnLinkDownAlarmForPaloAltoCustomer(engine, $nodeid, $iface, $uei, $ALID, $ELEMENTID);
+       sendCorrelationVpnLinkDownAlarmForPaloAltoCustomer(engine, $nodeid, $iface, $uei, $parms);
 end
 
-function void sendCorrelationVpnLinkDownAlarmForPaloAltoCustomer( DroolsCorrelationEngine engine, Long nodeId,  String $iface, String $uei, String $ALID, String $ELEMENTID) {
+function void sendCorrelationVpnLinkDownAlarmForPaloAltoCustomer( DroolsCorrelationEngine engine, Long nodeId,  String $iface, String $uei, List parms) {
   EventBuilder bldr = new EventBuilder("uei.opennms.org/correlator/vendor/PaloAlto/ION/NETWORK_VPNLINK_DOWN", "Drools")
     .setNodeid(nodeId.intValue())
     .setInterface(InetAddress.getByName($iface));
-    bldr.addParam("AL_ID", $ALID);
-    bldr.addParam("ELEMENT_ID",$ELEMENTID);
+     for (Object obj : parms) {
+       Parm p = (Parm) obj;
+       bldr.addParam(p.getParmName(), p.getValue().getContent());
+      }
+     System.out.println("Send Event: " + bldr.getEvent());
     engine.sendEvent(bldr.getEvent());
 }
 

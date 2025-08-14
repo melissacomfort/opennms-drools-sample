@@ -76,8 +76,11 @@ public class PaloAltoCustomerHoldDownRulesTest extends CorrelationRulesTestCase 
         EventBuilder bldr = new EventBuilder(NETWORK_VPNLINK_DOWN_PAST_HOLDDOWN_UEI, "Drools");
         bldr.setNodeid(1);
         bldr.setInterface(InetAddress.getByName("172.20.209.13"));
-        bldr.addParam("AL_ID", "ALTEST");
-        bldr.addParam("ELEMENT_ID", "ELTEST");
+        bldr.addParam("AL_ID", "1683762669553020796");
+        bldr.addParam("ELEMENT_ID", "1683761563340000096");
+        bldr.addParam("VPN_LINK_ID", "1683762691580024996");
+        bldr.addParam("ION_HOST", "SWP-ION-3200");
+        bldr.addParam("IDENTIFIER", "1683762691580024696");
         anticipate(bldr.getEvent());
         DroolsCorrelationEngine engine = findEngineByName(engineName);
 
@@ -131,8 +134,11 @@ public class PaloAltoCustomerHoldDownRulesTest extends CorrelationRulesTestCase 
         return new EventBuilder(uei, "Drools")
                 .setNodeid(nodeid)
                 .setInterface(addr(ipaddr))
-                .addParam("AL_ID", "ALTEST")
-                .addParam("ELEMENT_ID", "ELTEST")
+                .addParam("AL_ID", "1683762669553020796")
+                .addParam("ELEMENT_ID", "1683761563340000096")
+                .addParam("VPN_LINK_ID", "1683762691580024996")
+                .addParam("ION_HOST", "SWP-ION-3200")
+                .addParam("IDENTIFIER", "1683762691580024696")
                 .getEvent();
     }
 }
